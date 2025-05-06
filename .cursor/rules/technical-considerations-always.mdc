@@ -1,0 +1,15 @@
+---
+description: Technical constraints and architecture guidelines
+alwaysApply: true
+---
+
+- Platform: iOS
+- Language: Swift
+- UI Framework: SwiftUI
+- Data Persistence:
+- SwiftData: Suitable for structured local data storage.
+- `UserDefaults` for simple settings like reminder time.
+- Notifications: `UserNotifications` using local ios notifications for local reminders.
+- Architecture:  MVVM (Model-View-ViewModel) if using SwiftUI
+- Minimum iOS Version: 17+
+- Privacy: All data will be stored locally on the user's device for MVP. No cloud sync or external data transmission. A clear privacy statement should be available.

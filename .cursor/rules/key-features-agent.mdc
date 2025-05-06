@@ -1,0 +1,32 @@
+---
+description: Key feature specifications for Symptomly UI screens
+alwaysApply: false
+---
+
+- 5.1. Symptom Logging Screen:
+- Symptom Name: Text input field. Autocomplete suggestions based on previously entered symptom names.
+- Severity: A simple scale (e.g., 1-5 numerical scale, or descriptive: Mild, Moderate, Severe). Visual representation (e.g., slider, segmented control).
+- Timestamp: Automatically populated with the current date and time. User can tap to adjust if logging retroactively (within the same day or recent past).
+- Notes: Optional multi-line text field for additional context (e.g., "after eating spicy food," "woke up with it").
+- "Save Symptom" Button.
+- 5.2. Daily Diary View:
+- Main Screen: Defaults to showing symptoms logged for the current day.
+- Chronological List: Symptoms displayed in reverse chronological order (most recent first).
+- Entry Display: Each entry should clearly show symptom name, severity, time, and a snippet of notes (if any).
+- "Add New Symptom" Button: Prominently displayed (e.g., floating action button or "+" in navigation bar).
+- 5.3. Historical View:
+- Calendar Navigation: A simple way to select a previous date (e.g., a mini-calendar picker, or "<" ">" buttons to go day-by-day).
+- Display: Shows logged symptoms for the selected date, similar to the Daily Diary View.
+- 5.4. Symptom Editing/Deletion:
+- Users can tap on a logged symptom entry to view its full details.
+- From the detail view, users can edit any field or delete the entire entry.
+- Standard iOS swipe-to-delete gesture on the list view for quick deletion.
+- 5.5. End-of-Day Reminder:
+- Local Notification: A single, daily local notification.
+- Default Time: Defaults to a reasonable time (e.g., 8:00 PM).
+- Customizable Time: User can adjust the reminder time in settings.
+- Toggle: User can enable/disable the reminder.
+- 5.6. Settings Screen:
+- Reminder Time Configuration.
+- Reminder On/Off Toggle.
+- (Future: Data export, About, Feedback).

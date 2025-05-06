@@ -1,3 +1,14 @@
+//
+//  SymptomListView.swift
+//  Symptomly
+//
+//  Created by Bastien Villefort on 5/6/25.
+//
+
+import SwiftUICore
+import SwiftUI
+import _SwiftData_SwiftUI
+
 struct SymptomListView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var selectedDate: Date

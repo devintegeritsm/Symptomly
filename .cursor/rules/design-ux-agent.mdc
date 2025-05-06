@@ -1,0 +1,11 @@
+---
+description: Design and UX guidelines
+alwaysApply: false
+---
+
+- Simplicity: Minimalist design. Avoid clutter. Focus on core functionality.
+- Intuitive Navigation: Easy to understand how to add symptoms and view history. Standard iOS navigation patterns.
+- Clarity: Clear typography, sufficient contrast for readability.
+- Quick Entry: The process of adding a new symptom should be as fast as possible.
+- Visual Feedback: Clear indication when a symptom is saved or an action is performed.
+- Accessibility: Consider basic accessibility features (e.g., Dynamic Type support).

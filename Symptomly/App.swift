@@ -1,5 +1,5 @@
 //
-//  SymptomlyApp.swift
+//  App.swift
 //  Symptomly
 //
 //  Created by Bastien Villefort on 5/6/25.
@@ -8,11 +8,12 @@
 import SwiftUI
 import SwiftData
 
+
 @main
 struct SymptomlyApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            Symptom.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -25,8 +26,8 @@ struct SymptomlyApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            DailySymptomView()
         }
         .modelContainer(sharedModelContainer)
     }
-}
+} 

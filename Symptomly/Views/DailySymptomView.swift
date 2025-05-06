@@ -1,3 +1,14 @@
+//
+//  DailySymptomView.swift
+//  Symptomly
+//
+//  Created by Bastien Villefort on 5/6/25.
+//
+
+import SwiftUICore
+import SwiftUI
+
+
 struct DailySymptomView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var showingSymptomLog = false
