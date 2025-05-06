@@ -33,6 +33,7 @@ struct SymptomlyApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Symptom.self,
+            Remedy.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

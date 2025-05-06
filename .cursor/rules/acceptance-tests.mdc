@@ -1,0 +1,23 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+Acceptance tests
+
+---
+
+Acceptance tests for Remedy Card feature
+
+<example>
+Given I open the Remedy Card  
+When I select **Potency** = `30C`  
+Then *wait‑and‑watch* defaults to **1 week**  
+And *effectiveness due date* shows exactly 7 days ahead.
+</example>
+
+<example type="invalid">
+❌ If potency is `200C` and wait‑and‑watch is manually set to **2 weeks**, saving must also push the *effectiveness due date* by 2 weeks; failing to sync is invalid.
+</example>
+
+---

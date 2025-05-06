@@ -1,14 +1,25 @@
 //
-//  SymptomLogView.swift
+//  SymptomRow.swift
 //  Symptomly
 //
 //  Created by Bastien Villefort on 5/6/25.
 //
 
 import SwiftUICore
+import SwiftData
+import SwiftUI
 
 struct SymptomRow: View {
     let symptom: Symptom
+    @Query private var allRemedies: [Remedy]
+    
+    var activeRemedies: [Remedy] {
+        allRemedies.filter { remedy in
+            remedy.isActiveAtDate(symptom.timestamp)
+        }
+        .prefix(3) // Limit to 3 remedies to avoid UI clutter
+        .sorted { $0.takenTimestamp > $1.takenTimestamp }
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -30,6 +41,21 @@ struct SymptomRow: View {
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
+            }
+            
+            if !activeRemedies.isEmpty {
+                HStack(spacing: 4) {
+                    ForEach(activeRemedies) { remedy in
+                        RemedyPill(remedy: remedy)
+                    }
+                    
+                    if allRemedies.filter({ $0.isActiveAtDate(symptom.timestamp) }).count > 3 {
+                        Text("+ more")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.top, 4)
             }
         }
         .padding(.vertical, 4)

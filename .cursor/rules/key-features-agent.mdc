@@ -1,5 +1,6 @@
 ---
 description: Key feature specifications for Symptomly UI screens
+globs: 
 alwaysApply: false
 ---
 
@@ -29,4 +30,49 @@ alwaysApply: false
 - 5.6. Settings Screen:
 - Reminder Time Configuration.
 - Reminder On/Off Toggle.
+
+- 5.7  Remedy Card (new)
+- Present a Remedy Card component on the Logging screen with a visually distinct style (pill‑shaped container, teal accent background).
+- Remedy Name  
+  - Provide a text input with autocomplete.  
+  - Autocomplete priority: remedies previously entered by the user (local history) ⇒ predefined remedies list.
+- Remedy Potency  
+  - Segmented control / menu with static options: `6C`, `30C`, `200C`, `1M`, `Other`.  
+  - Selecting Other prompts free‑text potency entry.
+- Timestamp when remedy taken  
+  - Pre‑populate with `Date.now()` when the card opens. Allow the user to tap to edit; constrain edits to past/future within ±72 h.
+- Remedy wait‑and‑watch period  
+  - Auto‑compute default duration:  
+    - `6C` → 1 day  
+    - `30C` → 1 week  
+    - `200C` → 1 month  
+    - `1M` → 2 months  
+  - Display as number + unit picker (hours / days / weeks / months). Updating it updates Remedy effectiveness due date.
+- Remedy effectiveness due date  
+  - Auto‑calculate as `takenTimestamp + waitAndWatch`. Changing this date back‑propagates to the wait‑and‑watch picker.
+- Timestamp prescribed on  
+  - Default to `Date.now()`. Editable by tap.
+- Prescription repeat schedule toggle  
+  - Off by default. When on, reveal Prescription schedule settings.
+- Prescription schedule settings  
+  - Recurrence rule picker supporting:  
+    - Daily  
+    - Multiple times per day (specify frequency & interval)  
+    - Every other day  
+    - Weekly / Biweekly (`biweekly`)  
+    - Monthly  
+  - End Repeat date picker; mandatory when repeat is enabled.  
+  - On save, schedule local notification(s) matching the rule.
+- Notes – optional multi‑line text field.
+- Save Remedy button persists the record, dismisses the card, and publishes a SwiftData `didSaveRemedy` event.
+
+- 5.8  Remedy Card behavior in the app (new)
+- Display the Remedy Card in the Logging screen alongside the Symptom Card; ensure a contrasting background (`.backgroundStyle(.thickMaterial)`).
+- On the Daily View calendar:  
+  - Show remedy entries on their *taken* timestamps.  
+  - If repeat schedule is enabled, show future occurrences as faded placeholders.  
+- On each Symptom Card, list active remedies whose *wait‑and‑watch* window encompasses the symptom's timestamp OR whose repeat schedule overlaps the symptom date. Use a small "pill" label (`RemedyName • Potency`) under the symptom intensity bar.
+
+
 - (Future: Data export, About, Feedback).
+
