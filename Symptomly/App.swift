@@ -7,10 +7,29 @@
 
 import SwiftUI
 import SwiftData
+import UserNotifications
 
+class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        
+        // Initialize settings to trigger notification setup
+        let settings = SettingsViewModel()
+        settings.checkNotificationAuthorization()
+        
+        return true
+    }
+    
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        // Show the notification even if the app is in foreground
+        completionHandler([.banner, .sound])
+    }
+}
 
 @main
 struct SymptomlyApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Symptom.self,
@@ -26,7 +45,19 @@ struct SymptomlyApp: App {
 
     var body: some Scene {
         WindowGroup {
-            DailySymptomView()
+            TabView {
+                DailySymptomView()
+                    .tabItem {
+                        Image(systemName: "list.clipboard")
+                        Text("Symptoms")
+                    }
+                
+                SettingsView()
+                    .tabItem {
+                        Image(systemName: "gear")
+                        Text("Settings")
+                    }
+            }
         }
         .modelContainer(sharedModelContainer)
     }
