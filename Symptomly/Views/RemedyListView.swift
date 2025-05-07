@@ -10,114 +10,14 @@ import SwiftData
 
 struct RemedyListView: View {
     @Environment(\.modelContext) private var modelContext
-    @Binding var selectedDate: Date
     @State private var showingRemedyLog = false
     
-    @Query private var allRemedies: [Remedy]
-    
-    init(selectedDate: Binding<Date>) {
-        self._selectedDate = selectedDate
-    }
-    
-    var remediesForSelectedDate: [Remedy] {
-        allRemedies.filter { remedy in
-            let calendar = Calendar.current
-            
-            // For non-recurring remedies, check if taken on the selected date
-            if !remedy.hasRecurrence {
-                return calendar.isDate(remedy.takenTimestamp, inSameDayAs: selectedDate)
-            }
-            
-            // For recurring remedies, check if there's an occurrence on the selected date
-            return remedy.hasOccurrenceOnDate(selectedDate)
-        }
-        .sorted { $0.takenTimestamp > $1.takenTimestamp }
-    }
-    
-    // Future occurrences of recurring remedies
-    var futureRemedies: [Remedy] {
-        guard Calendar.current.isDateInToday(selectedDate) else {
-            return []
-        }
-        
-        return allRemedies.filter { remedy in
-            remedy.hasRecurrence && 
-            remedy.recurrenceEndDate != nil && 
-            remedy.recurrenceEndDate! > Date() &&
-            !Calendar.current.isDate(remedy.takenTimestamp, inSameDayAs: Date())
-        }
-    }
+    @Query(sort: \Remedy.takenTimestamp, order: .reverse) private var allRemedies: [Remedy]
     
     var body: some View {
         NavigationStack {
             VStack {
-                // Date navigation
-                HStack {
-                    Button(action: {
-                        selectedDate = Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) ?? selectedDate
-                    }) {
-                        Image(systemName: "chevron.left")
-                    }
-                    
-                    DatePicker(
-                        "",
-                        selection: $selectedDate,
-                        displayedComponents: [.date]
-                    )
-                    .labelsHidden()
-                    
-                    Button(action: {
-                        selectedDate = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
-                    }) {
-                        Image(systemName: "chevron.right")
-                    }
-                    .disabled(Calendar.current.isDateInToday(selectedDate) || Calendar.current.isDate(selectedDate, inSameDayAs: Date()))
-                }
-                .padding(.horizontal)
-                
-                // Remedies content
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        if remediesForSelectedDate.isEmpty && futureRemedies.isEmpty {
-                            ContentUnavailableView(
-                                "No Remedies",
-                                systemImage: "pill",
-                                description: Text("You haven't logged any remedies for this date.")
-                            )
-                            .padding(.top, 50)
-                        } else {
-                            if !remediesForSelectedDate.isEmpty {
-                                Section {
-                                    ForEach(remediesForSelectedDate) { remedy in
-                                        NavigationLink(destination: RemedyDetailView(remedy: remedy)) {
-                                            RemedyRow(remedy: remedy)
-                                        }
-                                        .buttonStyle(PlainButtonStyle())
-                                        Divider()
-                                    }
-                                } header: {
-                                    Text("Remedies")
-                                        .font(.headline)
-                                        .padding(.bottom, 8)
-                                }
-                            }
-                            
-                            if !futureRemedies.isEmpty {
-                                Section {
-                                    ForEach(futureRemedies) { remedy in
-                                        RemedyRow(remedy: remedy, isPlaceholder: true)
-                                        Divider()
-                                    }
-                                } header: {
-                                    Text("Upcoming Remedies")
-                                        .font(.headline)
-                                        .padding(.vertical, 8)
-                                }
-                            }
-                        }
-                    }
-                    .padding()
-                }
+                RemedyListContent(allRemedies: allRemedies)
             }
             .navigationTitle("Remedies")
             .toolbar {
@@ -133,5 +33,99 @@ struct RemedyListView: View {
                 RemedyLogView()
             }
         }
+    }
+    
+    private func determineRemedyStatus(remedy: Remedy) -> RemedyStatus {
+        let currentDate = Date()
+        
+        // Check if in wait and watch period
+        if currentDate <= remedy.effectivenessDueDate {
+            return .waitAndWatch
+        }
+        
+        // Check if on a repeated schedule
+        if remedy.hasRecurrence && remedy.recurrenceEndDate != nil && remedy.recurrenceEndDate! > currentDate {
+            return .repeatedSchedule
+        }
+        
+        // Not in wait period and not on schedule
+        return .completed
+    }
+}
+
+// Extracted content view to simplify the main view hierarchy
+struct RemedyListContent: View {
+    let allRemedies: [Remedy]
+    
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if allRemedies.isEmpty {
+                    EmptyRemedyView()
+                } else {
+                    RemedyListSection(remedies: allRemedies)
+                }
+            }
+            .padding()
+        }
+    }
+}
+
+// Empty state view
+struct EmptyRemedyView: View {
+    var body: some View {
+        ContentUnavailableView(
+            "No Remedies",
+            systemImage: "pill",
+            description: Text("You haven't logged any remedies yet.")
+        )
+        .padding(.top, 50)
+    }
+}
+
+// Section containing the list of remedies
+struct RemedyListSection: View {
+    let remedies: [Remedy]
+    
+    var body: some View {
+        Section {
+            ForEach(remedies) { remedy in
+                RemedyRowLink(remedy: remedy)
+                Divider()
+            }
+        } header: {
+            Text("All Remedies")
+                .font(.headline)
+                .padding(.bottom, 8)
+        }
+    }
+}
+
+// Navigation link with remedy row
+struct RemedyRowLink: View {
+    let remedy: Remedy
+    
+    var body: some View {
+        NavigationLink(destination: RemedyDetailView(remedy: remedy)) {
+            RemedyRow(remedy: remedy, remedyStatus: determineRemedyStatus(remedy: remedy))
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    private func determineRemedyStatus(remedy: Remedy) -> RemedyStatus {
+        let currentDate = Date()
+        
+        // Check if in wait and watch period
+        if currentDate <= remedy.effectivenessDueDate {
+            return .waitAndWatch
+        }
+        
+        // Check if on a repeated schedule
+        if remedy.hasRecurrence && remedy.recurrenceEndDate != nil && remedy.recurrenceEndDate! > currentDate {
+            return .repeatedSchedule
+        }
+        
+        // Not in wait period and not on schedule
+        return .completed
     }
 } 

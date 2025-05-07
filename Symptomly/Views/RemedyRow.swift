@@ -7,13 +7,21 @@
 
 import SwiftUI
 
+enum RemedyStatus {
+    case waitAndWatch
+    case repeatedSchedule
+    case completed
+}
+
 struct RemedyRow: View {
     let remedy: Remedy
     let isPlaceholder: Bool
+    let remedyStatus: RemedyStatus
     
-    init(remedy: Remedy, isPlaceholder: Bool = false) {
+    init(remedy: Remedy, isPlaceholder: Bool = false, remedyStatus: RemedyStatus = .completed) {
         self.remedy = remedy
         self.isPlaceholder = isPlaceholder
+        self.remedyStatus = remedyStatus
     }
     
     var body: some View {
@@ -31,6 +39,13 @@ struct RemedyRow: View {
                 .opacity(isPlaceholder ? 0.6 : 1.0)
                 
                 HStack {
+                    Text(formatDate(remedy.takenTimestamp))
+                        .font(.caption)
+                    
+                    Text("at")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
                     Text(formatTime(remedy.takenTimestamp))
                         .font(.caption)
                     
@@ -63,22 +78,33 @@ struct RemedyRow: View {
                         .padding(.vertical, 2)
                         .background(Color.gray.opacity(0.2))
                         .cornerRadius(8)
-                } else if remedy.isActive {
-                    Text("Active")
-                        .font(.caption2)
-                        .foregroundColor(.green)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color.green.opacity(0.2))
-                        .cornerRadius(8)
                 } else {
-                    Text("Ended")
-                        .font(.caption2)
-                        .foregroundColor(.red)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color.red.opacity(0.2))
-                        .cornerRadius(8)
+                    switch remedyStatus {
+                    case .waitAndWatch:
+                        Text("Wait & Watch")
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(Color.orange.opacity(0.2))
+                            .cornerRadius(8)
+                    case .repeatedSchedule:
+                        Text("Repeating")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(Color.blue.opacity(0.2))
+                            .cornerRadius(8)
+                    case .completed:
+                        Text("Completed")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(Color.gray.opacity(0.2))
+                            .cornerRadius(8)
+                    }
                 }
                 
                 Text("Until \(formatDate(remedy.effectivenessDueDate))")

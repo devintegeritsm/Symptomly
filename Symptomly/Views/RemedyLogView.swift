@@ -100,7 +100,7 @@ struct RemedyLogView: View {
                     VStack(alignment: .leading) {
                         Text("Prescribed on:")
                         DatePicker("", selection: $prescribedTimestamp, displayedComponents: [.date])
-                        .scaledToFit()
+                        .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
                     }
                     
                     VStack(alignment: .leading) {
@@ -109,7 +109,7 @@ struct RemedyLogView: View {
                         .onChange(of: takenTimestamp) { _, _ in
                             updateEffectivenessDueDate()
                         }
-                        .scaledToFit()
+                        .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
                     }
                 }
                 
@@ -117,18 +117,15 @@ struct RemedyLogView: View {
                     VStack(alignment: .leading) {
                         Text("Duration:")
                         HStack {
-                            Stepper(value: $waitValue, in: waitValueRange) {
-                                        Text("\(waitValue)")
-                            }
-                            .scaledToFit()
-                        
+                            Text("\(waitValue)")
+                                .frame(width: 40, alignment: .trailing)
+                            
                             Picker("", selection: $waitUnit) {
                                 Text("Hours").tag(Calendar.Component.hour)
                                 Text("Days").tag(Calendar.Component.day)
                                 Text("Weeks").tag(Calendar.Component.weekOfMonth)
                                 Text("Months").tag(Calendar.Component.month)
                             }
-                            .scaledToFit()
                             .pickerStyle(.menu)
                             .onChange(of: waitUnit) { _, newUnit in
                                 // Adjust the wait value if switching to a unit where
@@ -142,12 +139,14 @@ struct RemedyLogView: View {
                                 updateEffectivenessDueDate()
                             }
                             
-                            
+                            Stepper(value: $waitValue, in: waitValueRange) { }
+//                            .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
                         }
+                        
                         
                     }
                     
-                    DatePicker("Effectiveness due date", selection: $effectivenessDueDate, displayedComponents: [.date])
+                    DatePicker("Effectiveness due date:", selection: $effectivenessDueDate, displayedComponents: [.date])
                         .onChange(of: effectivenessDueDate) { _, newValue in
                             updateWaitAndWatchFromDueDate(newValue)
                         }
