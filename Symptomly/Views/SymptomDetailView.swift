@@ -5,7 +5,6 @@
 //  Created by Bastien Villefort on 5/6/25.
 //
 
-import SwiftUICore
 import SwiftUI
 import SwiftData
 

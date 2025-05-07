@@ -5,9 +5,8 @@
 //  Created by Bastien Villefort on 5/6/25.
 //
 
-import SwiftUICore
 import SwiftUI
-import _SwiftData_SwiftUI
+import SwiftData
 
 struct SymptomLogView: View {
     @Environment(\.modelContext) private var modelContext
@@ -20,6 +19,9 @@ struct SymptomLogView: View {
     @State private var timestamp: Date = Date()
     @State private var showSuggestions: Bool = false
     @State private var filteredSuggestions: [String] = []
+    
+
+
     
     var body: some View {
         NavigationStack {
@@ -34,16 +36,24 @@ struct SymptomLogView: View {
                                 showSuggestions = false
                             }
                         }
-                    
+
                     if showSuggestions {
                         List(filteredSuggestions, id: \.self) { suggestion in
                             Button(action: {
                                 name = suggestion
                                 showSuggestions = false
+                                // Optionally, dismiss keyboard here if desired
+                                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                             }) {
                                 Text(suggestion)
+                                    .foregroundColor(.primary)
+                                    .padding(.vertical, 4)
+                                    .frame(maxWidth: .infinity, alignment: .leading) // Make tappable area wider
                             }
+                            .buttonStyle(.plain) // Often good for list-like buttons
                         }
+                        .padding(.vertical, 4)
+                        .transition(.opacity.combined(with: .move(edge: .top))) // Optional: add a transition
                     }
                 }
                 
@@ -60,7 +70,8 @@ struct SymptomLogView: View {
                     VStack(alignment: .leading) {
                         Text("Time:")
                         DatePicker("", selection: $timestamp, displayedComponents: [.date, .hourAndMinute])
-                        .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
+//                            .labelsHidden()
+                            .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
                     }
                 }
                 
@@ -84,26 +95,52 @@ struct SymptomLogView: View {
                     .disabled(name.isEmpty)
                 }
             }
+            // For dismissing keyboard when tapping outside, you might need this on a scrollable container or the Form
+            .onTapGesture {
+                hideKeyboard()
+            }
         }
     }
     
+
+    
     private func updateSuggestions(query: String) {
+        
+//        let uniqueSymptomNames = Set(existingSymptoms.map { $0.name })
+//        filteredSuggestions = Array(uniqueSymptomNames).filter { 
+//            $0.lowercased().contains(query.lowercased()) && $0 != query 
+//        }
+        
+        let lowercasedQuery = query.lowercased()
+        // Fetch unique names once or efficiently if this list changes frequently
         let uniqueSymptomNames = Set(existingSymptoms.map { $0.name })
-        filteredSuggestions = Array(uniqueSymptomNames).filter { 
-            $0.lowercased().contains(query.lowercased()) && $0 != query 
-        }
+        // Filter more efficiently
+        // Also, ensure the query itself isn't immediately shown as a suggestion if it's a full match
+        // unless that's desired behavior.
+        filteredSuggestions = Array(uniqueSymptomNames).filter {
+            $0.lowercased().contains(lowercasedQuery) && $0.lowercased() != lowercasedQuery
+        }.sorted() // Optional: sort suggestions
     }
     
     private func saveSymptom() {
         let newSymptom = Symptom(
-            name: name,
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
             severity: severity,
             timestamp: timestamp,
-            notes: notes.isEmpty ? nil : notes
+            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes.trimmingCharacters(in: .whitespacesAndNewlines)
         )
+        
+        // Ensure name is not empty after trimming
+        guard !newSymptom.name.isEmpty else {
+            // Optionally show an alert to the user
+            print("Symptom name cannot be empty after trimming.")
+            return
+        }
         
         modelContext.insert(newSymptom)
         
         dismiss()
     }
 }
+
+

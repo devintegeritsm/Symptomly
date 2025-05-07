@@ -1,3 +1,14 @@
+//
+//  Extensions.swift
+//  Symptomly
+//
+//  Created by Bastien Villefort on 5/7/25.
+//
+
+import SwiftUI
+import SwiftData
+
+
 #if canImport(UIKit)
 extension View {
     func hideKeyboard() {

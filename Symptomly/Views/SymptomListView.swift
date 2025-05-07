@@ -5,9 +5,8 @@
 //  Created by Bastien Villefort on 5/6/25.
 //
 
-import SwiftUICore
 import SwiftUI
-import _SwiftData_SwiftUI
+import SwiftData
 
 struct SymptomListView: View {
     @Environment(\.modelContext) private var modelContext

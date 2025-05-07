@@ -8,11 +8,13 @@
 import Foundation
 import SwiftUI
 
-enum Severity: Int, Codable, CaseIterable {
+enum Severity: Int, Codable, CaseIterable, Identifiable {
     case mild = 1
     case moderate = 2
     case severe = 3
     case extreme = 4
+    
+    var id: Int { self.rawValue }
     
     var displayName: String {
         switch self {
