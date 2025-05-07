@@ -19,9 +19,9 @@ enum RemedyPotency: String, Codable, CaseIterable {
     var defaultWaitPeriod: (value: Int, unit: Calendar.Component) {
         switch self {
         case .potency6C:
-            return (1, .day)
+            return (12, .hour)
         case .potency30C:
-            return (1, .weekOfMonth)
+            return (4, .day)
         case .potency200C:
             return (1, .month)
         case .potency1M:

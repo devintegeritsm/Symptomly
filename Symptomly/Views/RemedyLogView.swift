@@ -40,11 +40,28 @@ struct RemedyLogView: View {
         return calendar.date(byAdding: .month, value: 1, to: Date()) ?? Date()
     }()
     
+    // Range limits for wait values based on unit
+    private var waitValueRange: ClosedRange<Int> {
+        switch waitUnit {
+        case .hour:
+            return 12...48
+        case .day:
+            return 1...180
+        case .weekOfMonth, .weekOfYear:
+            return 1...52
+        case .month:
+            return 1...24
+        default:
+            return 1...180
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             Form {
                 Section("Remedy Information") {
                     TextField("Enter remedy name", text: $name)
+                        .autocorrectionDisabled(true)
                         .onChange(of: name) { _, newValue in
                             if !newValue.isEmpty {
                                 updateSuggestions(query: newValue)
@@ -70,6 +87,9 @@ struct RemedyLogView: View {
                             Text(potencyLevel.rawValue).tag(potencyLevel.rawValue)
                         }
                     }
+                    .onChange(of: potency) { _, _ in
+                        updateDefaultWaitPeriod()
+                    }
                     
                     if potency == RemedyPotency.other.rawValue {
                         TextField("Custom potency", text: $customPotency)
@@ -77,33 +97,54 @@ struct RemedyLogView: View {
                 }
                 
                 Section("Timing") {
-                    DatePicker("Taken on", selection: $takenTimestamp, displayedComponents: [.date, .hourAndMinute])
+                    VStack(alignment: .leading) {
+                        Text("Prescribed on:")
+                        DatePicker("", selection: $prescribedTimestamp, displayedComponents: [.date])
+                        .scaledToFit()
+                    }
+                    
+                    VStack(alignment: .leading) {
+                        Text("Taken on:")
+                        DatePicker("", selection: $takenTimestamp, displayedComponents: [.date, .hourAndMinute])
                         .onChange(of: takenTimestamp) { _, _ in
                             updateEffectivenessDueDate()
                         }
-                    
-                    DatePicker("Prescribed on", selection: $prescribedTimestamp, displayedComponents: [.date, .hourAndMinute])
+                        .scaledToFit()
+                    }
                 }
                 
                 Section("Wait and Watch Period") {
-                    HStack {
-                        Stepper(value: $waitValue, in: 1...24) {
-                            Text("Duration: \(waitValue)")
+                    VStack(alignment: .leading) {
+                        Text("Duration:")
+                        HStack {
+                            Stepper(value: $waitValue, in: waitValueRange) {
+                                        Text("\(waitValue)")
+                            }
+                            .scaledToFit()
+                        
+                            Picker("", selection: $waitUnit) {
+                                Text("Hours").tag(Calendar.Component.hour)
+                                Text("Days").tag(Calendar.Component.day)
+                                Text("Weeks").tag(Calendar.Component.weekOfMonth)
+                                Text("Months").tag(Calendar.Component.month)
+                            }
+                            .scaledToFit()
+                            .pickerStyle(.menu)
+                            .onChange(of: waitUnit) { _, newUnit in
+                                // Adjust the wait value if switching to a unit where
+                                // the current value exceeds the range
+                                if waitValue > waitValueRange.upperBound {
+                                    waitValue = waitValueRange.upperBound
+                                }
+                                updateEffectivenessDueDate()
+                            }
+                            .onChange(of: waitValue) { _, _ in
+                                updateEffectivenessDueDate()
+                            }
+                            
+                            
                         }
                         
-                        Picker("Unit", selection: $waitUnit) {
-                            Text("Hours").tag(Calendar.Component.hour)
-                            Text("Days").tag(Calendar.Component.day)
-                            Text("Weeks").tag(Calendar.Component.weekOfMonth)
-                            Text("Months").tag(Calendar.Component.month)
-                        }
-                        .pickerStyle(.menu)
-                        .onChange(of: waitUnit) { _, _ in
-                            updateEffectivenessDueDate()
-                        }
-                        .onChange(of: waitValue) { _, _ in
-                            updateEffectivenessDueDate()
-                        }
                     }
                     
                     DatePicker("Effectiveness due date", selection: $effectivenessDueDate, displayedComponents: [.date])
@@ -167,10 +208,18 @@ struct RemedyLogView: View {
     }
     
     private func updateSuggestions(query: String) {
-        let uniqueRemedyNames = Set(existingRemedies.map { $0.name })
-        filteredSuggestions = Array(uniqueRemedyNames).filter { 
+        // Get user's previously entered remedy names
+        let uniqueUserRemedyNames = Set(existingRemedies.map { $0.name })
+        
+        // Combine with predefined remedies, giving priority to user's entries
+        var allRemedyNames = uniqueUserRemedyNames
+        allRemedyNames.formUnion(PredefinedData.remedyNames)
+        
+        // Filter based on query
+        filteredSuggestions = Array(allRemedyNames).filter { 
             $0.lowercased().contains(query.lowercased()) && $0 != query 
         }
+        .sorted()  // Sort alphabetically for better UX
     }
     
     private func updateDefaultWaitPeriod() {
@@ -190,16 +239,27 @@ struct RemedyLogView: View {
     private func updateWaitAndWatchFromDueDate(_ dueDate: Date) {
         // This is a simplified approach - for real apps we'd calculate the exact difference
         let calendar = Calendar.current
-        let components = calendar.dateComponents([.day], from: takenTimestamp, to: dueDate)
+        let components = calendar.dateComponents([.day, .hour, .weekOfMonth, .month], from: takenTimestamp, to: dueDate)
         
-        if let days = components.day, days > 0 {
-            if days <= 7 {
+        let days = (components.weekOfMonth ?? 0) * 7 + (components.month ?? 0) * 30 + (components.day ?? 0)
+        if days > 0 {
+            // Convert to hours for short durations
+            if days <= 2 {
+                waitValue = days * 24 + (components.hour ?? 0)
+                waitUnit = .hour
+            }
+            // Use days for moderate durations
+            else if days <= 180 {
                 waitValue = days
                 waitUnit = .day
-            } else if days <= 30 {
+            } 
+            // Use weeks for longer durations
+            else if days <= 364 {
                 waitValue = days / 7
                 waitUnit = .weekOfMonth
-            } else {
+            } 
+            // Use months for very long durations
+            else {
                 waitValue = days / 30
                 waitUnit = .month
             }

@@ -57,7 +57,11 @@ struct SymptomLogView: View {
                 }
                 
                 Section("When did it occur?") {
-                    DatePicker("Time", selection: $timestamp, displayedComponents: [.date, .hourAndMinute])
+                    VStack(alignment: .leading) {
+                        Text("Time:")
+                        DatePicker("", selection: $timestamp, displayedComponents: [.date, .hourAndMinute])
+                        .scaledToFit()
+                    }
                 }
                 
                 Section("Notes (Optional)") {
