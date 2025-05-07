@@ -15,7 +15,7 @@ struct SymptomLogView: View {
     @Query private var existingSymptoms: [Symptom]
     
     @State private var name: String = ""
-    @State private var severity: Int = 3  // Default to moderate
+    @State private var severity: Int = 2  // Default to moderate
     @State private var notes: String = ""
     @State private var timestamp: Date = Date()
     @State private var showSuggestions: Bool = false
@@ -60,7 +60,7 @@ struct SymptomLogView: View {
                     VStack(alignment: .leading) {
                         Text("Time:")
                         DatePicker("", selection: $timestamp, displayedComponents: [.date, .hourAndMinute])
-                        .scaledToFit()
+                        .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
                     }
                 }
                 

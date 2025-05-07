@@ -76,7 +76,7 @@ struct EmptyRemedyView: View {
     var body: some View {
         ContentUnavailableView(
             "No Remedies",
-            systemImage: "pill",
+            systemImage: "flask",
             description: Text("You haven't logged any remedies yet.")
         )
         .padding(.top, 50)

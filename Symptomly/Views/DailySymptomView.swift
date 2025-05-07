@@ -12,7 +12,6 @@ import SwiftUI
 struct DailySymptomView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var showingSymptomLog = false
-    @State private var showingRemedyLog = false
     @State private var selectedDate = Date()
     
     var body: some View {
@@ -48,18 +47,8 @@ struct DailySymptomView: View {
             .navigationTitle("Symptoms")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button {
-                            showingSymptomLog = true
-                        } label: {
-                            Label("Log Symptom", systemImage: "plus.circle")
-                        }
-                        
-                        Button {
-                            showingRemedyLog = true
-                        } label: {
-                            Label("Log Remedy", systemImage: "pill")
-                        }
+                    Button {
+                        showingSymptomLog = true
                     } label: {
                         Image(systemName: "plus")
                     }
@@ -67,9 +56,6 @@ struct DailySymptomView: View {
             }
             .sheet(isPresented: $showingSymptomLog) {
                 SymptomLogView()
-            }
-            .sheet(isPresented: $showingRemedyLog) {
-                RemedyLogView()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("DidSaveRemedy"))) { _ in

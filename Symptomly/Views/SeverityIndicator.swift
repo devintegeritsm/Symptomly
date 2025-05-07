@@ -13,7 +13,7 @@ struct SeverityIndicator: View {
     
     var body: some View {
         HStack(spacing: 4) {
-            ForEach(1...5, id: \.self) { level in
+            ForEach(1...Severity.allCases.count, id: \.self) { level in
                 Circle()
                     .fill(level <= severity.rawValue ? severity.color : Color.gray.opacity(0.3))
                     .frame(width: 8, height: 8)
