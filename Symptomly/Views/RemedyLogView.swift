@@ -29,6 +29,9 @@ struct RemedyLogView: View {
         let calendar = Calendar.current
         return calendar.date(byAdding: .weekOfMonth, value: 1, to: Date()) ?? Date()
     }()
+    @State private var stepperDate: Date = Date()
+    @State private var dueDateUpdated: Bool = false
+
     
     // Recurrence properties
     @State private var hasRecurrence: Bool = false
@@ -44,7 +47,7 @@ struct RemedyLogView: View {
     private var waitValueRange: ClosedRange<Int> {
         switch waitUnit {
         case .hour:
-            return 12...48
+            return 1...72
         case .day:
             return 1...180
         case .weekOfMonth, .weekOfYear:
@@ -117,39 +120,69 @@ struct RemedyLogView: View {
                     VStack(alignment: .leading) {
                         Text("Duration:")
                         HStack {
+                            Spacer()
                             Text("\(waitValue)")
-                                .frame(width: 40, alignment: .trailing)
+                                .monospacedDigit()
                             
+                            Stepper("", value: $waitValue, in: waitValueRange)
+                                .labelsHidden()
+                                .fixedSize()
+                               
                             Picker("", selection: $waitUnit) {
                                 Text("Hours").tag(Calendar.Component.hour)
                                 Text("Days").tag(Calendar.Component.day)
                                 Text("Weeks").tag(Calendar.Component.weekOfMonth)
                                 Text("Months").tag(Calendar.Component.month)
                             }
+                            .labelsHidden()
                             .pickerStyle(.menu)
-                            .onChange(of: waitUnit) { _, newUnit in
-                                // Adjust the wait value if switching to a unit where
-                                // the current value exceeds the range
+                            .onChange(of: waitUnit) { oldUnit, newUnit in
+                                
+                                var pervHours: Int
+                                switch oldUnit {
+                                case .day:
+                                    pervHours = waitValue * 24
+                                case .weekOfMonth, .weekOfYear:
+                                    pervHours = waitValue * 24 * 7
+                                case .month:
+                                    pervHours = waitValue * 24 * 30
+                                default:
+                                    pervHours = waitValue
+                                }
+                                
+                                switch newUnit {
+                                case .day:
+                                    waitValue = pervHours / 24
+                                case .weekOfMonth, .weekOfYear:
+                                    waitValue = pervHours / (24 * 7)
+                                case .month:
+                                    waitValue = pervHours / (24 * 30)
+                                default:
+                                    waitValue = pervHours
+                                }
+                                
+                                
                                 if waitValue > waitValueRange.upperBound {
                                     waitValue = waitValueRange.upperBound
+                                } else if waitValue < waitValueRange.lowerBound {
+                                    waitValue = waitValueRange.lowerBound
                                 }
                                 updateEffectivenessDueDate()
                             }
-                            .onChange(of: waitValue) { _, _ in
-                                updateEffectivenessDueDate()
-                            }
-                            
-                            Stepper(value: $waitValue, in: waitValueRange) { }
-//                            .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
                         }
-                        
-                        
+                        .onChange(of: waitValue) { _, _ in
+                            updateEffectivenessDueDate()
+                        }
                     }
-                    
-                    DatePicker("Effectiveness due date:", selection: $effectivenessDueDate, displayedComponents: [.date])
-                        .onChange(of: effectivenessDueDate) { _, newValue in
-                            updateWaitAndWatchFromDueDate(newValue)
+                                        
+                    VStack(alignment: .leading) {
+                        Text("Effectiveness due date:")
+                        DatePicker("", selection: $effectivenessDueDate, displayedComponents: [.date, .hourAndMinute])
+                            .onChange(of: effectivenessDueDate) { _, newValue in
+                                updateWaitAndWatchFromDueDate(newValue)
                         }
+                        .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
+                    }
                 }
                 
                 Section {
@@ -231,37 +264,52 @@ struct RemedyLogView: View {
     }
     
     private func updateEffectivenessDueDate() {
+        if dueDateUpdated {
+            dueDateUpdated = false
+            return
+        }
         let calendar = Calendar.current
         effectivenessDueDate = calendar.date(byAdding: waitUnit, value: waitValue, to: takenTimestamp) ?? Date()
+        stepperDate = effectivenessDueDate
     }
     
+    
     private func updateWaitAndWatchFromDueDate(_ dueDate: Date) {
-        // This is a simplified approach - for real apps we'd calculate the exact difference
+        if dueDate == stepperDate {
+            return
+        }
+        dueDateUpdated = true
+        
         let calendar = Calendar.current
         let components = calendar.dateComponents([.day, .hour, .weekOfMonth, .month], from: takenTimestamp, to: dueDate)
         
-        let days = (components.weekOfMonth ?? 0) * 7 + (components.month ?? 0) * 30 + (components.day ?? 0)
-        if days > 0 {
-            // Convert to hours for short durations
-            if days <= 2 {
-                waitValue = days * 24 + (components.hour ?? 0)
-                waitUnit = .hour
-            }
-            // Use days for moderate durations
-            else if days <= 180 {
-                waitValue = days
-                waitUnit = .day
-            } 
-            // Use weeks for longer durations
-            else if days <= 364 {
-                waitValue = days / 7
-                waitUnit = .weekOfMonth
-            } 
-            // Use months for very long durations
-            else {
-                waitValue = days / 30
-                waitUnit = .month
-            }
+        
+        // Calculate total days for better unit selection
+        let totalHours = (components.hour ?? 0) +
+                        (components.day ?? 0) * 24 +
+                        (components.weekOfMonth ?? 0) * 7 * 24 + 
+                        (components.month ?? 0) * 30 * 24
+        
+        print("\(components)")
+        
+        // Select most appropriate unit
+        if totalHours <= 48 {
+            waitUnit = .hour
+            waitValue = max(1, totalHours)
+        } else if totalHours <= 180 * 24 {
+            waitUnit = .day
+            waitValue = max(1, totalHours / 24)
+        } else if totalHours <= 52 * 7 * 24 {
+            waitUnit = .weekOfMonth
+            waitValue = max(1, totalHours / (7 * 24))
+        } else {
+            waitUnit = .month
+            waitValue = max(1, totalHours / (30 * 24))
+        }
+        
+        // Ensure value is within allowed range
+        if waitValue > waitValueRange.upperBound {
+            waitValue = waitValueRange.upperBound
         }
     }
     

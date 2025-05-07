@@ -55,7 +55,7 @@ struct SymptomlyApp: App {
                 
                 RemedyListView()
                     .tabItem {
-                        Image(systemName: "pill")
+                        Image(systemName: "flask")
                         Text("Remedies")
                     }
                 
