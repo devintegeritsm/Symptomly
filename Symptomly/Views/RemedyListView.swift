@@ -11,6 +11,7 @@ import SwiftData
 struct RemedyListView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var selectedDate: Date
+    @State private var showingRemedyLog = false
     
     @Query private var allRemedies: [Remedy]
     
@@ -48,47 +49,89 @@ struct RemedyListView: View {
     }
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if remediesForSelectedDate.isEmpty && futureRemedies.isEmpty {
-                    ContentUnavailableView(
-                        "No Remedies",
-                        systemImage: "pill",
-                        description: Text("You haven't logged any remedies for this date.")
-                    )
-                    .padding(.top, 50)
-                } else {
-                    if !remediesForSelectedDate.isEmpty {
-                        Section {
-                            ForEach(remediesForSelectedDate) { remedy in
-                                NavigationLink(destination: RemedyDetailView(remedy: remedy)) {
-                                    RemedyRow(remedy: remedy)
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                                Divider()
-                            }
-                        } header: {
-                            Text("Remedies")
-                                .font(.headline)
-                                .padding(.bottom, 8)
-                        }
+        NavigationStack {
+            VStack {
+                // Date navigation
+                HStack {
+                    Button(action: {
+                        selectedDate = Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) ?? selectedDate
+                    }) {
+                        Image(systemName: "chevron.left")
                     }
                     
-                    if !futureRemedies.isEmpty {
-                        Section {
-                            ForEach(futureRemedies) { remedy in
-                                RemedyRow(remedy: remedy, isPlaceholder: true)
-                                Divider()
+                    DatePicker(
+                        "",
+                        selection: $selectedDate,
+                        displayedComponents: [.date]
+                    )
+                    .labelsHidden()
+                    
+                    Button(action: {
+                        selectedDate = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
+                    }) {
+                        Image(systemName: "chevron.right")
+                    }
+                    .disabled(Calendar.current.isDateInToday(selectedDate) || Calendar.current.isDate(selectedDate, inSameDayAs: Date()))
+                }
+                .padding(.horizontal)
+                
+                // Remedies content
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        if remediesForSelectedDate.isEmpty && futureRemedies.isEmpty {
+                            ContentUnavailableView(
+                                "No Remedies",
+                                systemImage: "pill",
+                                description: Text("You haven't logged any remedies for this date.")
+                            )
+                            .padding(.top, 50)
+                        } else {
+                            if !remediesForSelectedDate.isEmpty {
+                                Section {
+                                    ForEach(remediesForSelectedDate) { remedy in
+                                        NavigationLink(destination: RemedyDetailView(remedy: remedy)) {
+                                            RemedyRow(remedy: remedy)
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
+                                        Divider()
+                                    }
+                                } header: {
+                                    Text("Remedies")
+                                        .font(.headline)
+                                        .padding(.bottom, 8)
+                                }
                             }
-                        } header: {
-                            Text("Upcoming Remedies")
-                                .font(.headline)
-                                .padding(.vertical, 8)
+                            
+                            if !futureRemedies.isEmpty {
+                                Section {
+                                    ForEach(futureRemedies) { remedy in
+                                        RemedyRow(remedy: remedy, isPlaceholder: true)
+                                        Divider()
+                                    }
+                                } header: {
+                                    Text("Upcoming Remedies")
+                                        .font(.headline)
+                                        .padding(.vertical, 8)
+                                }
+                            }
                         }
+                    }
+                    .padding()
+                }
+            }
+            .navigationTitle("Remedies")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingRemedyLog = true
+                    } label: {
+                        Image(systemName: "plus")
                     }
                 }
             }
-            .padding()
+            .sheet(isPresented: $showingRemedyLog) {
+                RemedyLogView()
+            }
         }
     }
 } 

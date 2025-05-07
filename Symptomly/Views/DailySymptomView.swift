@@ -14,7 +14,6 @@ struct DailySymptomView: View {
     @State private var showingSymptomLog = false
     @State private var showingRemedyLog = false
     @State private var selectedDate = Date()
-    @State private var selectedTab = 0
     
     var body: some View {
         NavigationStack {
@@ -43,22 +42,10 @@ struct DailySymptomView: View {
                 }
                 .padding(.horizontal)
                 
-                // Tabs for Symptoms and Remedies
-                Picker("View", selection: $selectedTab) {
-                    Text("Symptoms").tag(0)
-                    Text("Remedies").tag(1)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                
-                // Content based on selected tab
-                if selectedTab == 0 {
-                    SymptomListView(selectedDate: $selectedDate)
-                } else {
-                    RemedyListView(selectedDate: $selectedDate)
-                }
+                // Content
+                SymptomListView(selectedDate: $selectedDate)
             }
-            .navigationTitle("Symptomly")
+            .navigationTitle("Symptoms")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
@@ -86,8 +73,7 @@ struct DailySymptomView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("DidSaveRemedy"))) { _ in
-            // Switch to Remedies tab when a remedy is saved
-            selectedTab = 1
+            // No longer need to switch tabs here
         }
     }
 } 

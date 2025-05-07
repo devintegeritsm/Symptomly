@@ -53,6 +53,12 @@ struct SymptomlyApp: App {
                         Text("Symptoms")
                     }
                 
+                RemedyListView(selectedDate: .constant(Date()))
+                    .tabItem {
+                        Image(systemName: "pill")
+                        Text("Remedies")
+                    }
+                
                 SettingsView()
                     .tabItem {
                         Image(systemName: "gear")
