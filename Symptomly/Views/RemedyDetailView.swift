@@ -53,34 +53,19 @@ struct RemedyDetailView: View {
             VStack(alignment: .leading, spacing: 16) {
                 // Header with name and potency
                 HStack {
-                    if isEditing {
-                        TextField("Name", text: $name)
-                            .font(.title)
-                            .padding(.bottom, 2)
-                    } else {
-                        Text(remedy.name)
-                            .font(.title)
-                            .bold()
-                    }
+                    Text(remedy.name)
+                        .font(.title)
+                        .bold()
                     
                     Spacer()
                     
-                    if isEditing {
-                        Picker("Potency", selection: $potency) {
-                            ForEach(RemedyPotency.allCases, id: \.rawValue) { potencyLevel in
-                                Text(potencyLevel.rawValue).tag(potencyLevel.rawValue)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                    } else {
-                        Text(remedy.displayPotency)
-                            .font(.title3)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(Color.teal.opacity(0.2))
-                            .foregroundColor(.teal)
-                            .cornerRadius(12)
-                    }
+                    Text(remedy.displayPotency)
+                        .font(.title3)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.teal.opacity(0.2))
+                        .foregroundColor(.teal)
+                        .cornerRadius(12)
                 }
                 .padding(.bottom, 8)
                 
@@ -96,39 +81,56 @@ struct RemedyDetailView: View {
                 
                 // Timing information
                 VStack(alignment: .leading, spacing: 12) {
+                    
                     HStack {
-                        Image(systemName: "calendar")
-                            .foregroundColor(.secondary)
-                        
                         if isEditing {
-                            DatePicker("", selection: $takenTimestamp, displayedComponents: [.date, .hourAndMinute])
-                                .labelsHidden()
+                            VStack(alignment: .leading) {
+                                HStack {
+                                    Image(systemName: "calendar.badge.clock").foregroundColor(.secondary)
+                                    Text("Prescribed on:")
+                                }
+                                DatePicker("", selection: $prescribedTimestamp, displayedComponents: [.date])
+                                    .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
+                                
+                            }
                         } else {
+                            let calendar = Calendar.current
+                            if !calendar.isDate(remedy.prescribedTimestamp, inSameDayAs: remedy.takenTimestamp) {
+                                Image(systemName: "calendar.badge.clock").foregroundColor(.secondary)
+                                Text("Prescribed on \(formatDateTime(remedy.prescribedTimestamp))")
+                            }
+                        }
+                    }
+                    
+                    HStack {
+                        if isEditing {
+                            VStack(alignment: .leading) {
+                                HStack {
+                                    Image(systemName: "calendar").foregroundColor(.secondary)
+                                    Text("Taken on:")
+                                }
+                                DatePicker("", selection: $takenTimestamp, displayedComponents: [.date, .hourAndMinute])
+                                    .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
+                            }
+                        } else {
+                            Image(systemName: "calendar").foregroundColor(.secondary)
                             Text("Taken on \(formatDateTime(remedy.takenTimestamp))")
                         }
                     }
                     
                     HStack {
-                        Image(systemName: "calendar.badge.clock")
-                            .foregroundColor(.secondary)
-                        
                         if isEditing {
-                            DatePicker("", selection: $prescribedTimestamp, displayedComponents: [.date, .hourAndMinute])
-                                .labelsHidden()
+                            VStack(alignment: .leading) {
+                                HStack {
+                                    Image(systemName: "timer").foregroundColor(.secondary)
+                                    Text("Wait and watch until:")
+                                }
+                                DatePicker("", selection: $effectivenessDueDate, displayedComponents: [.date, .hourAndMinute])
+                                    .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
+                            }
                         } else {
-                            Text("Prescribed on \(formatDateTime(remedy.prescribedTimestamp))")
-                        }
-                    }
-                    
-                    HStack {
-                        Image(systemName: "timer")
-                            .foregroundColor(.secondary)
-                        
-                        if isEditing {
-                            DatePicker("", selection: $effectivenessDueDate, displayedComponents: [.date])
-                                .labelsHidden()
-                        } else {
-                            Text("Effective until \(formatDate(remedy.effectivenessDueDate))")
+                            Image(systemName: "timer").foregroundColor(.secondary)
+                            Text("Wait and watch until \(formatDate(remedy.effectivenessDueDate))")
                                 .foregroundColor(remedy.isActive ? .green : .red)
                         }
                     }

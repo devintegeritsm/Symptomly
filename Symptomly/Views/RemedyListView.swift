@@ -93,10 +93,6 @@ struct RemedyListSection: View {
                 RemedyRowLink(remedy: remedy)
                 Divider()
             }
-        } header: {
-            Text("All Remedies")
-                .font(.headline)
-                .padding(.bottom, 8)
         }
     }
 }

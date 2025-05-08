@@ -25,38 +25,43 @@ struct RemedyRow: View {
     }
     
     var body: some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text(remedy.name)
-                        .font(.headline)
-                    
-                    Text("•")
-                    
-                    Text(remedy.displayPotency)
-                        .font(.subheadline)
-                }
-                .opacity(isPlaceholder ? 0.6 : 1.0)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(remedy.name)
+                    .font(.headline)
+                    .fontWeight(.bold)
                 
-                HStack {
-                    Text(formatDate(remedy.takenTimestamp))
-                        .font(.caption)
-                    
-                    Text("at")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Text(formatTime(remedy.takenTimestamp))
-                        .font(.caption)
-                    
-                    if remedy.hasRecurrence {
-                        Image(systemName: "repeat")
-                            .font(.caption)
-                    }
-                }
-                .foregroundColor(.secondary)
-                .opacity(isPlaceholder ? 0.4 : 0.8)
+                Text("•")
                 
+                Text(remedy.displayPotency)
+                    .font(.subheadline)
+            }
+            .opacity(isPlaceholder ? 0.6 : 1.0)
+            
+            HStack {
+                Text("Taken")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Text(formatDate(remedy.takenTimestamp))
+                    .font(.caption)
+                
+                Text("at")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Text(formatTime(remedy.takenTimestamp))
+                    .font(.caption)
+                
+                if remedy.hasRecurrence {
+                    Image(systemName: "repeat")
+                        .font(.caption)
+                }
+            }
+            .foregroundColor(.secondary)
+            .opacity(isPlaceholder ? 0.4 : 0.8)
+            
+            HStack {
                 if let notes = remedy.notes, !notes.isEmpty {
                     Text(notes)
                         .font(.caption2)
@@ -66,15 +71,15 @@ struct RemedyRow: View {
                         .opacity(isPlaceholder ? 0.4 : 0.8)
                 }
             }
+            .foregroundColor(.secondary)
+            .opacity(isPlaceholder ? 0.4 : 0.8)
             
-            Spacer()
-            
-            VStack(alignment: .trailing, spacing: 2) {
+            HStack {
                 if isPlaceholder {
                     Text("Future")
                         .font(.caption2)
                         .foregroundColor(.gray)
-                        .padding(.horizontal, 8)
+//                        .padding(.horizontal, 8)
                         .padding(.vertical, 2)
                         .background(Color.gray.opacity(0.2))
                         .cornerRadius(8)
@@ -112,8 +117,7 @@ struct RemedyRow: View {
                     .foregroundColor(.secondary)
             }
         }
-        .padding(.vertical, 8)
-        .opacity(isPlaceholder ? 0.6 : 1.0)
+        
     }
     
     private func formatTime(_ date: Date) -> String {
@@ -136,12 +140,11 @@ struct RemedyPill: View {
         HStack(spacing: 4) {
             Text(remedy.name)
                 .font(.caption2)
+                .fontWeight(.bold)
             
-            Text("•")
-                .font(.caption2)
+            Text("•").font(.caption2)
             
-            Text(remedy.displayPotency)
-                .font(.caption2)
+            Text(remedy.displayPotency).font(.caption2)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 2)

@@ -58,7 +58,14 @@ struct SymptomDetailView: View {
                 }
                 
                 Section("When did it occur?") {
-                    DatePicker("Time", selection: $timestamp, displayedComponents: [.date, .hourAndMinute])
+                    VStack(alignment: .leading) {
+                        HStack {
+                            Image(systemName: "calendar").foregroundColor(.secondary)
+                            Text("Time:")
+                        }
+                    }
+                    DatePicker("", selection: $timestamp, displayedComponents: [.date, .hourAndMinute])
+                        .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
                 }
                 
                 Section("Notes (Optional)") {
@@ -70,19 +77,17 @@ struct SymptomDetailView: View {
                     Section("Active Remedies") {
                         ForEach(activeRemedies) { remedy in
                             NavigationLink(destination: RemedyDetailView(remedy: remedy)) {
-                                HStack(spacing: 4) {
-                                    Text(remedy.name)
-                                        .fontWeight(.medium)
-                                    
-                                    Text("•")
-                                    
-                                    Text(remedy.displayPotency)
-                                    
-                                    Spacer()
-                                    
-                                    Text("Taken \(formatTimeAgo(from: remedy.takenTimestamp))")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                                VStack(alignment: .leading) {
+                                    HStack(spacing: 4) {
+                                        Text(remedy.name).fontWeight(.medium)
+                                        Text("•")
+                                        Text(remedy.displayPotency)
+                                    }
+                                    HStack(spacing: 4) {
+                                        Text("Taken \(Utils.formatTimeAgo(from: remedy.takenTimestamp))")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
                                 }
                             }
                         }
@@ -120,18 +125,11 @@ struct SymptomDetailView: View {
         symptom.severity = severity
         symptom.timestamp = timestamp
         symptom.notes = notes.isEmpty ? nil : notes
-        
         dismiss()
     }
     
     private func deleteSymptom() {
         modelContext.delete(symptom)
         dismiss()
-    }
-    
-    private func formatTimeAgo(from date: Date) -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .short
-        return formatter.localizedString(for: date, relativeTo: Date())
     }
 }

@@ -1,3 +1,13 @@
+//
+//  FlowLayout.swift
+//  Symptomly
+//
+//  Created by Bastien Villefort on 5/8/25.
+//
+
+import SwiftUI
+import SwiftData
+
 struct FlowLayout: Layout {
     var spacing: CGFloat
     

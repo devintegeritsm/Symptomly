@@ -18,42 +18,97 @@ struct SymptomLogView: View {
     @State private var notes: String = ""
     @State private var timestamp: Date = Date()
     @State private var showSuggestions: Bool = false
+    @State private var skipSuggestions: Bool = false
     @State private var filteredSuggestions: [String] = []
+    @State private var dicCompletions: [String] = []
+    @FocusState private var isNameFieldFocused: Bool
     
-
-
+    @Query private var allRemedies: [Remedy]
     
+    var activeRemedies: [Remedy] {
+        allRemedies.filter { remedy in
+            remedy.isActiveAtDate(timestamp)
+        }
+        .sorted { $0.takenTimestamp > $1.takenTimestamp }
+    }
+        
     var body: some View {
         NavigationStack {
             Form {
                 Section("Symptom Name") {
                     TextField("Enter symptom name", text: $name)
+                        .focused($isNameFieldFocused)
                         .onChange(of: name) { _, newValue in
                             if !newValue.isEmpty {
+                                if skipSuggestions {
+                                    skipSuggestions = false
+                                    return
+                                }
                                 updateSuggestions(query: newValue)
-                                showSuggestions = !filteredSuggestions.isEmpty
                             } else {
                                 showSuggestions = false
                             }
                         }
-
+                        .autocorrectionDisabled(true)
+                    
                     if showSuggestions {
-                        List(filteredSuggestions, id: \.self) { suggestion in
-                            Button(action: {
-                                name = suggestion
-                                showSuggestions = false
-                                // Optionally, dismiss keyboard here if desired
-                                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                            }) {
-                                Text(suggestion)
-                                    .foregroundColor(.primary)
-                                    .padding(.vertical, 4)
-                                    .frame(maxWidth: .infinity, alignment: .leading) // Make tappable area wider
+                        VStack(alignment: .leading) {
+                            ScrollView {
+                                if !filteredSuggestions.isEmpty {
+                                    VStack(alignment: .leading) {
+                                        Text("Previously used symptoms:")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        FlowLayout(spacing: 8) {
+                                            ForEach(filteredSuggestions, id: \.self) { suggestion in
+                                                Button(action: {
+                                                    name = suggestion
+                                                    showSuggestions = false
+                                                    skipSuggestions = true
+                                                    hideKeyboard()
+                                                }) {
+                                                    Text(suggestion)
+                                                        .padding(.horizontal, 12)
+                                                        .padding(.vertical, 6)
+                                                        .background(Color.accentColor.opacity(0.1))
+                                                        .foregroundColor(.accentColor)
+                                                        .cornerRadius(16)
+                                                        .overlay(
+                                                            RoundedRectangle(cornerRadius: 16)
+                                                                .stroke(Color.accentColor.opacity(0.3), lineWidth: 1)
+                                                        )
+                                                }
+                                                .buttonStyle(PlainButtonStyle())
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                if !dicCompletions.isEmpty {
+                                    VStack(alignment: .leading) {
+                                        Text("Dictionary suggestions:")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        FlowLayout(spacing: 8) {
+                                            ForEach(dicCompletions, id: \.self) { suggestion in
+                                                Button(action: {
+                                                    name = suggestion
+                                                    showSuggestions = false
+                                                    skipSuggestions = true
+                                                    hideKeyboard()
+                                                }) {
+                                                    Text(suggestion)
+                                                }
+                                                .buttonStyle(PlainButtonStyle())
+                                            }
+                                        }
+                                    }
+                                }
                             }
-                            .buttonStyle(.plain) // Often good for list-like buttons
+                            .frame(maxHeight: 200)
                         }
-                        .padding(.vertical, 4)
-                        .transition(.opacity.combined(with: .move(edge: .top))) // Optional: add a transition
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        .animation(.easeInOut, value: showSuggestions)
                     }
                 }
                 
@@ -70,7 +125,6 @@ struct SymptomLogView: View {
                     VStack(alignment: .leading) {
                         Text("Time:")
                         DatePicker("", selection: $timestamp, displayedComponents: [.date, .hourAndMinute])
-//                            .labelsHidden()
                             .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
                     }
                 }
@@ -78,6 +132,30 @@ struct SymptomLogView: View {
                 Section("Notes (Optional)") {
                     TextEditor(text: $notes)
                         .frame(minHeight: 100)
+                }
+                
+                if !activeRemedies.isEmpty {
+                    Section("Active Remedies") {
+                        ForEach(activeRemedies) { remedy in
+                            NavigationLink(destination: RemedyDetailView(remedy: remedy)) {
+                                VStack(alignment: .leading) {
+                                    HStack(spacing: 4) {
+                                        Text(remedy.name)
+                                            .fontWeight(.medium)
+                                        
+                                        Text("•")
+                                        
+                                        Text(remedy.displayPotency)
+                                    }
+                                    HStack(spacing: 4) {
+                                        Text("Taken \(Utils.formatTimeAgo(from: remedy.takenTimestamp))")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
             .navigationTitle("Log Symptom")
@@ -100,17 +178,16 @@ struct SymptomLogView: View {
                 hideKeyboard()
             }
         }
+        .onAppear {
+            // Automatically focus the field when the view appears
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.isNameFieldFocused = true
+            }
+        }
     }
-    
 
     
     private func updateSuggestions(query: String) {
-        
-//        let uniqueSymptomNames = Set(existingSymptoms.map { $0.name })
-//        filteredSuggestions = Array(uniqueSymptomNames).filter { 
-//            $0.lowercased().contains(query.lowercased()) && $0 != query 
-//        }
-        
         let lowercasedQuery = query.lowercased()
         // Fetch unique names once or efficiently if this list changes frequently
         let uniqueSymptomNames = Set(existingSymptoms.map { $0.name })
@@ -119,7 +196,20 @@ struct SymptomLogView: View {
         // unless that's desired behavior.
         filteredSuggestions = Array(uniqueSymptomNames).filter {
             $0.lowercased().contains(lowercasedQuery) && $0.lowercased() != lowercasedQuery
-        }.sorted() // Optional: sort suggestions
+        }.sorted()
+        showSuggestions = !filteredSuggestions.isEmpty
+        
+        let textChecker = UITextChecker()
+        let nsString = query as NSString
+        let wordRange = NSRange(location: 0, length: nsString.length)
+        let preferredLanguage = Locale.preferredLanguages.first ?? "en_US"
+//        let completions = textChecker.completions(forPartialWordRange: wordRange, in: query, language: "en_US") ?? []
+        let completions = textChecker.guesses(forWordRange: wordRange, in: query, language: preferredLanguage) ?? []
+        if !completions.isEmpty {
+            let suggestionsSet = Set(filteredSuggestions)
+            dicCompletions = completions.filter { !suggestionsSet.contains($0) }
+            showSuggestions = showSuggestions || !dicCompletions.isEmpty
+        }
     }
     
     private func saveSymptom() {
@@ -141,6 +231,10 @@ struct SymptomLogView: View {
         
         dismiss()
     }
+    
+    
 }
+
+
 
 

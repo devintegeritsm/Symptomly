@@ -101,13 +101,19 @@ struct RemedyLogView: View {
                 
                 Section("Timing") {
                     VStack(alignment: .leading) {
-                        Text("Prescribed on:")
+                        HStack {
+                            Image(systemName: "calendar.badge.clock").foregroundColor(.secondary)
+                            Text("Prescribed on:")
+                        }
                         DatePicker("", selection: $prescribedTimestamp, displayedComponents: [.date])
                         .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
                     }
                     
                     VStack(alignment: .leading) {
-                        Text("Taken on:")
+                        HStack {
+                            Image(systemName: "calendar").foregroundColor(.secondary)
+                            Text("Taken on:")
+                        }
                         DatePicker("", selection: $takenTimestamp, displayedComponents: [.date, .hourAndMinute])
                         .onChange(of: takenTimestamp) { _, _ in
                             updateEffectivenessDueDate()
@@ -176,7 +182,7 @@ struct RemedyLogView: View {
                     }
                                         
                     VStack(alignment: .leading) {
-                        Text("Effectiveness due date:")
+                        Text("Wait and Watch until:")
                         DatePicker("", selection: $effectivenessDueDate, displayedComponents: [.date, .hourAndMinute])
                             .onChange(of: effectivenessDueDate) { _, newValue in
                                 updateWaitAndWatchFromDueDate(newValue)

@@ -74,5 +74,7 @@ alwaysApply: false
 - On each Symptom Card, list active remedies whose *wait‑and‑watch* window encompasses the symptom's timestamp OR whose repeat schedule overlaps the symptom date. Use a small "pill" label (`RemedyName • Potency`) under the symptom intensity bar.
 
 
+
+
 - (Future: Data export, About, Feedback).
 
