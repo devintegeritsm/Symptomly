@@ -43,7 +43,7 @@ struct SymptomRow: View {
             }
             
             if !activeRemedies.isEmpty {
-                HStack(spacing: 4) {
+                VStack(alignment: .leading) {
                     ForEach(activeRemedies) { remedy in
                         RemedyPill(remedy: remedy)
                     }
