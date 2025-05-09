@@ -63,9 +63,8 @@ struct SymptomDetailView: View {
                             Image(systemName: "calendar").foregroundColor(.secondary)
                             Text("Time:")
                         }
+                        CustomDatePicker(selection: $timestamp, includeTime: true)
                     }
-                    DatePicker("", selection: $timestamp, displayedComponents: [.date, .hourAndMinute])
-                        .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
                 }
                 
                 Section("Notes (Optional)") {

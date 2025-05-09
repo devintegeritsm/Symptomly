@@ -25,8 +25,6 @@ struct DailySymptomView: View {
                         Image(systemName: "chevron.left")
                     }
                     
-                    Spacer()
-                    
                     Button(action: {
                         showingCalendarPicker.toggle()
                     }) {
@@ -53,8 +51,6 @@ struct DailySymptomView: View {
                         .presentationDetents([.height(450)])
                         .presentationDragIndicator(.visible)
                     }
-                    
-                    Spacer()
                     
                     Button(action: {
                         selectedDate = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate

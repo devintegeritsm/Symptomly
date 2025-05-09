@@ -85,21 +85,19 @@ struct CalendarPickerView: View {
                         }) {
                             VStack(spacing: 2) {
                                 Text("\(calendar.component(.day, from: date))")
-                                    .font(.system(size: 20, weight: calendar.isDateInToday(date) || calendar.isDate(date, inSameDayAs: selectedDate) ? .medium : .regular))
+                                    .font(.system(size: 20, weight: calendar.isDateInToday(date) ? .heavy : calendar.isDate(date, inSameDayAs: selectedDate) ? .medium : .regular
+                                                  ))
                                     .foregroundStyle(
                                         calendar.isDate(date, inSameDayAs: selectedDate) ? .white :
-                                        calendar.isDateInToday(date) ? .orange :
+//                                        calendar.isDateInToday(date) ? .accentColor :
                                         isCurrentMonth(date) ? .primary : .secondary
                                     )
                                     .frame(width: 36, height: 36)
                                     .background(
                                         Group {
                                             if calendar.isDate(date, inSameDayAs: selectedDate) {
-                                                RoundedRectangle(cornerRadius: 6)
-                                                    .fill(Color.accentColor)
-                                            } else if calendar.isDateInToday(date) {
                                                 Circle()
-                                                    .stroke(Color.orange, lineWidth: 1.5)
+                                                    .fill(Color.accentColor)
                                             } else {
                                                 Color.clear
                                             }

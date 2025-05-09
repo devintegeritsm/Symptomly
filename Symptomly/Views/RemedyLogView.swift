@@ -105,8 +105,7 @@ struct RemedyLogView: View {
                             Image(systemName: "calendar.badge.clock").foregroundColor(.secondary)
                             Text("Prescribed on:")
                         }
-                        DatePicker("", selection: $prescribedTimestamp, displayedComponents: [.date])
-                        .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
+                        CustomDatePicker(selection: $prescribedTimestamp)
                     }
                     
                     VStack(alignment: .leading) {
@@ -114,11 +113,10 @@ struct RemedyLogView: View {
                             Image(systemName: "calendar").foregroundColor(.secondary)
                             Text("Taken on:")
                         }
-                        DatePicker("", selection: $takenTimestamp, displayedComponents: [.date, .hourAndMinute])
+                        CustomDatePicker(selection: $takenTimestamp, includeTime: true)
                         .onChange(of: takenTimestamp) { _, _ in
                             updateEffectivenessDueDate()
                         }
-                        .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
                     }
                 }
                 
@@ -183,11 +181,10 @@ struct RemedyLogView: View {
                                         
                     VStack(alignment: .leading) {
                         Text("Wait and Watch until:")
-                        DatePicker("", selection: $effectivenessDueDate, displayedComponents: [.date, .hourAndMinute])
+                        CustomDatePicker(selection: $effectivenessDueDate, includeTime: true)
                             .onChange(of: effectivenessDueDate) { _, newValue in
                                 updateWaitAndWatchFromDueDate(newValue)
                         }
-                        .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
                     }
                 }
                 
@@ -211,7 +208,7 @@ struct RemedyLogView: View {
                             }
                         }
                         
-                        DatePicker("End Repeat", selection: $recurrenceEndDate, displayedComponents: [.date])
+                        CustomDatePicker("End Repeat", selection: $recurrenceEndDate)
                     }
                 } header: {
                     Text("Recurrence")

@@ -89,9 +89,7 @@ struct RemedyDetailView: View {
                                     Image(systemName: "calendar.badge.clock").foregroundColor(.secondary)
                                     Text("Prescribed on:")
                                 }
-                                DatePicker("", selection: $prescribedTimestamp, displayedComponents: [.date])
-                                    .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
-                                
+                                CustomDatePicker(selection: $prescribedTimestamp)
                             }
                         } else {
                             let calendar = Calendar.current
@@ -109,8 +107,7 @@ struct RemedyDetailView: View {
                                     Image(systemName: "calendar").foregroundColor(.secondary)
                                     Text("Taken on:")
                                 }
-                                DatePicker("", selection: $takenTimestamp, displayedComponents: [.date, .hourAndMinute])
-                                    .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
+                                CustomDatePicker(selection: $takenTimestamp, includeTime: true)
                             }
                         } else {
                             Image(systemName: "calendar").foregroundColor(.secondary)
@@ -125,8 +122,7 @@ struct RemedyDetailView: View {
                                     Image(systemName: "timer").foregroundColor(.secondary)
                                     Text("Wait and watch until:")
                                 }
-                                DatePicker("", selection: $effectivenessDueDate, displayedComponents: [.date, .hourAndMinute])
-                                    .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
+                                CustomDatePicker(selection: $effectivenessDueDate, includeTime: true)
                             }
                         } else {
                             Image(systemName: "timer").foregroundColor(.secondary)
@@ -172,7 +168,7 @@ struct RemedyDetailView: View {
                             }
                         }
                         
-                        DatePicker("End Repeat", selection: $recurrenceEndDate, displayedComponents: [.date])
+                        CustomDatePicker("End Repeat", selection: $recurrenceEndDate)
                     } else if remedy.hasRecurrence {
                         HStack {
                             Text("Rule:")

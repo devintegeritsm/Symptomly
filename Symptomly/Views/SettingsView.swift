@@ -12,10 +12,23 @@ struct SettingsView: View {
                         .disabled(!viewModel.notificationsAuthorized)
                     
                     if viewModel.reminderEnabled {
-                        DatePicker("Reminder Time", 
-                                  selection: $viewModel.reminderTime,
-                                  displayedComponents: .hourAndMinute)
+                        HStack {
+                            Text("Reminder Time")
+                            Spacer()
+                            Button(action: {
+                                showTimePicker()
+                            }) {
+                                Text(formatTime(viewModel.reminderTime))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(Color(.systemGray6))
+                                    )
+                            }
+                            .buttonStyle(.plain)
                             .disabled(!viewModel.notificationsAuthorized)
+                        }
                     }
                     
                     if !viewModel.notificationsAuthorized {
@@ -40,5 +53,46 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
         }
+    }
+    
+    private func showTimePicker() {
+        // Create a temporary alert controller to host our time picker
+        let alert = UIAlertController(title: "Select Reminder Time", message: "\n\n\n\n\n\n\n\n", preferredStyle: .actionSheet)
+        
+        // Create a time picker
+        let timePicker = UIDatePicker()
+        timePicker.datePickerMode = .time
+        timePicker.preferredDatePickerStyle = .wheels
+        timePicker.date = viewModel.reminderTime
+        
+        // Add constraints to position the picker
+        timePicker.translatesAutoresizingMaskIntoConstraints = false
+        alert.view.addSubview(timePicker)
+        
+        NSLayoutConstraint.activate([
+            timePicker.centerXAnchor.constraint(equalTo: alert.view.centerXAnchor),
+            timePicker.topAnchor.constraint(equalTo: alert.view.topAnchor, constant: 40),
+            timePicker.leadingAnchor.constraint(equalTo: alert.view.leadingAnchor, constant: 0),
+            timePicker.trailingAnchor.constraint(equalTo: alert.view.trailingAnchor, constant: 0)
+        ])
+        
+        // Add actions
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Save", style: .default) { _ in
+            viewModel.reminderTime = timePicker.date
+        })
+        
+        // Present the alert
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootViewController = windowScene.windows.first?.rootViewController {
+            rootViewController.present(alert, animated: true)
+        }
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 } 

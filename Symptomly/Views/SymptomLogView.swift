@@ -141,8 +141,7 @@ struct SymptomLogView: View {
                 Section("When did it occur?") {
                     VStack(alignment: .leading) {
                         Text("Time:")
-                        DatePicker("", selection: $timestamp, displayedComponents: [.date, .hourAndMinute])
-                            .alignmentGuide(.trailing) { d in d[HorizontalAlignment.trailing] }
+                        CustomDatePicker(selection: $timestamp, includeTime: true)
                     }
                 }
                 
