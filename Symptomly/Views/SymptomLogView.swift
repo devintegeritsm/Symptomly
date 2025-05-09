@@ -16,7 +16,7 @@ struct SymptomLogView: View {
     @State private var name: String = ""
     @State private var severity: Int = 2  // Default to moderate
     @State private var notes: String = ""
-    @State private var timestamp: Date = Date()
+    @State private var timestamp: Date
     @State private var showSuggestions: Bool = false
     @State private var skipSuggestions: Bool = false
     @State private var filteredSuggestions: [String] = []
@@ -24,6 +24,23 @@ struct SymptomLogView: View {
     @FocusState private var isNameFieldFocused: Bool
     
     @Query private var allRemedies: [Remedy]
+    
+    // Initialize with a selected date but keep the current time
+    init(selectedDate: Date = Date()) {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Combine the selected date with the current time
+        var components = calendar.dateComponents([.year, .month, .day], from: selectedDate)
+        let timeComponents = calendar.dateComponents([.hour, .minute, .second], from: now)
+        
+        components.hour = timeComponents.hour
+        components.minute = timeComponents.minute
+        components.second = timeComponents.second
+        
+        let combinedDate = calendar.date(from: components) ?? now
+        _timestamp = State(initialValue: combinedDate)
+    }
     
     var activeRemedies: [Remedy] {
         allRemedies.filter { remedy in

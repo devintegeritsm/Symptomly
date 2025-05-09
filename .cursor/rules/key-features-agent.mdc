@@ -6,7 +6,7 @@ alwaysApply: false
 
 - 5.1. Symptom Logging Screen:
 - Symptom Name: Text input field. Autocomplete suggestions based on previously entered symptom names.
-- Severity: A simple scale (e.g., 1-5 numerical scale, or descriptive: Mild, Moderate, Severe). Visual representation (e.g., slider, segmented control).
+- Severity: A simple scale (e.g., 1-4 numerical scale, or descriptive: Mild, Moderate, Severe). Visual representation (e.g., slider, segmented control).
 - Timestamp: Automatically populated with the current date and time. User can tap to adjust if logging retroactively (within the same day or recent past).
 - Notes: Optional multi-line text field for additional context (e.g., "after eating spicy food," "woke up with it").
 - "Save Symptom" Button.
