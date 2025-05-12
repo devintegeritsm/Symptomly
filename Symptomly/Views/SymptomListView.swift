@@ -67,7 +67,7 @@ struct SymptomListView: View {
                             }
                             
                             NavigationLink {
-                                SymptomDetailView(symptom: symptom)
+                                SymptomFormView(symptom: symptom)
                             } label: {
                                 Label("Edit", systemImage: "pencil")
                             }

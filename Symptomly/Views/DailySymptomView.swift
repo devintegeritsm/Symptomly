@@ -95,7 +95,7 @@ struct DailySymptomView: View {
                 }
             }
             .sheet(isPresented: $showingSymptomLog) {
-                SymptomLogView(selectedDate: selectedDate)
+                SymptomFormView(selectedDate: selectedDate)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("DidSaveRemedy"))) { _ in

@@ -1,5 +1,5 @@
 //
-//  SymptomDetailView.swift
+//  SymptomFormView.swift
 //  Symptomly
 //
 //  Created by Bastien Villefort on 5/6/25.
@@ -8,18 +8,32 @@
 import SwiftUI
 import SwiftData
 
-struct SymptomDetailView: View {
+struct SymptomFormView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
-    @Bindable var symptom: Symptom
+    // Mode of operation
+    enum Mode {
+        case create
+        case edit(Symptom)
+    }
     
-    @State private var name: String
-    @State private var severity: Int
-    @State private var notes: String
+    let mode: Mode
+    
+    // Optional symptom (only used in edit mode)
+    private var symptom: Symptom? {
+        if case .edit(let symptom) = mode {
+            return symptom
+        }
+        return nil
+    }
+    
+    @State private var name: String = ""
+    @State private var severity: Int = 2  // Default to moderate
+    @State private var notes: String = ""
     @State private var timestamp: Date
-    @State private var isResolved: Bool
-    @State private var resolutionDate: Date
+    @State private var isResolved: Bool = false
+    @State private var resolutionDate: Date = Date()
     @State private var showResolutionDatePicker: Bool = false
     @State private var showSuggestions: Bool = false
     @State private var skipSuggestions: Bool = false
@@ -32,19 +46,50 @@ struct SymptomDetailView: View {
     
     var activeRemedies: [Remedy] {
         allRemedies.filter { remedy in
-            remedy.isActiveAtDate(symptom.timestamp)
+            remedy.isActiveAtDate(timestamp)
         }
         .sorted { $0.takenTimestamp > $1.takenTimestamp }
     }
     
+    // Initialize with a create mode and optional selected date
+    init(selectedDate: Date = Date()) {
+        self.mode = .create
+        
+        // Set up the timestamp for a new symptom
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Combine the selected date with the current time
+        var components = calendar.dateComponents([.year, .month, .day], from: selectedDate)
+        let timeComponents = calendar.dateComponents([.hour, .minute, .second], from: now)
+        
+        components.hour = timeComponents.hour
+        components.minute = timeComponents.minute
+        components.second = timeComponents.second
+        
+        let combinedDate = calendar.date(from: components) ?? now
+        _timestamp = State(initialValue: combinedDate)
+    }
+    
+    // Initialize with an existing symptom for editing
     init(symptom: Symptom) {
-        self.symptom = symptom
+        self.mode = .edit(symptom)
+        
         _name = State(initialValue: symptom.name)
         _severity = State(initialValue: symptom.severity)
         _notes = State(initialValue: symptom.notes ?? "")
         _timestamp = State(initialValue: symptom.timestamp)
         _isResolved = State(initialValue: symptom.severityEnum == .resolved)
         _resolutionDate = State(initialValue: symptom.resolutionDate ?? Date())
+    }
+    
+    var navigationTitle: String {
+        switch mode {
+        case .create:
+            return "Log Symptom"
+        case .edit:
+            return "Edit Symptom"
+        }
     }
     
     var body: some View {
@@ -169,16 +214,21 @@ struct SymptomDetailView: View {
                         }
                         .pickerStyle(.segmented)
                         
-                        HStack {
-                            SeverityIndicator(severity: Severity(rawValue: severity) ?? .mild)
-                            Spacer()
+                        // Only show severity indicator in edit mode
+                        if case .edit = mode {
+                            HStack {
+                                SeverityIndicator(severity: Severity(rawValue: severity) ?? .mild)
+                                Spacer()
+                            }
                         }
                     }
                     
                     Section("When did it occur?") {
                         VStack(alignment: .leading) {
                             HStack {
-                                Image(systemName: "calendar").foregroundColor(.secondary)
+                                if case .edit = mode {
+                                    Image(systemName: "calendar").foregroundColor(.secondary)
+                                }
                                 Text("Time:")
                             }
                             CustomDatePicker(selection: $timestamp, includeTime: true)
@@ -197,8 +247,11 @@ struct SymptomDetailView: View {
                             NavigationLink(destination: RemedyDetailView(remedy: remedy)) {
                                 VStack(alignment: .leading) {
                                     HStack(spacing: 4) {
-                                        Text(remedy.name).fontWeight(.medium)
+                                        Text(remedy.name)
+                                            .fontWeight(.medium)
+                                        
                                         Text("•")
+                                        
                                         Text(remedy.displayPotency)
                                     }
                                     HStack(spacing: 4) {
@@ -212,7 +265,7 @@ struct SymptomDetailView: View {
                     }
                 }
             }
-            .navigationTitle("Edit Symptom")
+            .navigationTitle(navigationTitle)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -222,16 +275,24 @@ struct SymptomDetailView: View {
                 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        updateSymptom()
+                        switch mode {
+                        case .create:
+                            saveNewSymptom()
+                        case .edit:
+                            updateExistingSymptom()
+                        }
                     }
                     .disabled(name.isEmpty)
                 }
                 
-                ToolbarItem(placement: .destructiveAction) {
-                    Button(role: .destructive) {
-                        deleteSymptom()
-                    } label: {
-                        Image(systemName: "trash")
+                // Only show delete button in edit mode
+                if case .edit = mode {
+                    ToolbarItem(placement: .destructiveAction) {
+                        Button(role: .destructive) {
+                            deleteSymptom()
+                        } label: {
+                            Image(systemName: "trash")
+                        }
                     }
                 }
             }
@@ -294,7 +355,24 @@ struct SymptomDetailView: View {
         Utils.hideKeyboard()
     }
     
-    private func updateSymptom() {
+    private func saveNewSymptom() {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolutionDateValue = isResolved ? resolutionDate : nil
+        let newSymptom = Symptom(
+            name: trimmedName,
+            severity: severity,
+            timestamp: timestamp,
+            notes: notes.isEmpty ? nil : notes,
+            resolutionDate: resolutionDateValue
+        )
+        
+        modelContext.insert(newSymptom)
+        dismiss()
+    }
+    
+    private func updateExistingSymptom() {
+        guard let symptom = self.symptom else { return }
+        
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         symptom.name = trimmedName
         symptom.severity = severity
@@ -312,7 +390,9 @@ struct SymptomDetailView: View {
     }
     
     private func deleteSymptom() {
-        modelContext.delete(symptom)
-        dismiss()
+        if case .edit(let symptom) = mode {
+            modelContext.delete(symptom)
+            dismiss()
+        }
     }
-}
+} 
