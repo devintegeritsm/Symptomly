@@ -6,7 +6,12 @@
 //
 
 import SwiftUI
+import SwiftData
 
+// NotificationCenter name for date selection
+extension Notification.Name {
+    static let dateSelected = Notification.Name("dateSelectedFromSymptomView")
+}
 
 struct DailySymptomView: View {
     @Environment(\.modelContext) private var modelContext
@@ -21,6 +26,7 @@ struct DailySymptomView: View {
                 HStack {
                     Button(action: {
                         selectedDate = Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) ?? selectedDate
+                        publishSelectedDate()
                     }) {
                         Image(systemName: "chevron.left")
                     }
@@ -45,6 +51,7 @@ struct DailySymptomView: View {
                     .sheet(isPresented: $showingCalendarPicker) {
                         CalendarPickerView(selectedDate: $selectedDate, onDateSelected: {
                             showingCalendarPicker = false
+                            publishSelectedDate()
                         })
                         .frame(width: 340, height: 400)
                         .padding()
@@ -54,6 +61,7 @@ struct DailySymptomView: View {
                     
                     Button(action: {
                         selectedDate = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
+                        publishSelectedDate()
                     }) {
                         Image(systemName: "chevron.right")
                     }
@@ -73,6 +81,18 @@ struct DailySymptomView: View {
                         Image(systemName: "plus")
                     }
                 }
+                
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        // Switch to Timeline tab and show this date
+                        publishSelectedDate()
+                        // Use TabView selection if needed in the future
+                    } label: {
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 14))
+                    }
+                    .help("View in Timeline")
+                }
             }
             .sheet(isPresented: $showingSymptomLog) {
                 SymptomLogView(selectedDate: selectedDate)
@@ -87,5 +107,13 @@ struct DailySymptomView: View {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         return formatter.string(from: date)
+    }
+    
+    private func publishSelectedDate() {
+        NotificationCenter.default.post(
+            name: .dateSelected,
+            object: nil,
+            userInfo: ["selectedDate": selectedDate]
+        )
     }
 } 

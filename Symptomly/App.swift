@@ -59,6 +59,12 @@ struct SymptomlyApp: App {
                         Text("Remedies")
                     }
                 
+                TimelineView()
+                    .tabItem {
+                        Image(systemName: "chart.bar.doc.horizontal")
+                        Text("Timeline")
+                    }
+                
                 SettingsView()
                     .tabItem {
                         Image(systemName: "gear")
