@@ -35,7 +35,7 @@ struct SymptomRow: View {
                 SeverityIndicator(severity: symptom.severityEnum)
                 
                 if symptom.isResolved, let resolutionDate = symptom.resolutionDate {
-                    Text("Resolved \(resolutionDate.formatted(.dateTime.month().day().hour().minute()))")
+                    Text("\(resolutionDate.formatted(.dateTime.month().day().hour().minute()))")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 } else if let notes = symptom.notes, !notes.isEmpty {

@@ -35,6 +35,11 @@ struct RemedyRow: View {
                 
                 Text(remedy.displayPotency)
                     .font(.subheadline)
+                    .foregroundColor(.teal)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Color.teal.opacity(0.2))
+                    .cornerRadius(8)
             }
             .opacity(isPlaceholder ? 0.6 : 1.0)
             
@@ -144,7 +149,9 @@ struct RemedyPill: View {
             
             Text("•").font(.caption2)
             
-            Text(remedy.displayPotency).font(.caption2)
+            Text(remedy.displayPotency)
+                .font(.caption2)
+            
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 2)

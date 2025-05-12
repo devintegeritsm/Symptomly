@@ -602,10 +602,7 @@ struct RemedyFormView: View {
     }
     
     private func formatDateTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+        return Utils.formatDateTime(date)
     }
     
     // MARK: - Save, Update and Delete Methods
