@@ -30,7 +30,7 @@ struct RemedyListView: View {
                 }
             }
             .sheet(isPresented: $showingRemedyLog) {
-                RemedyLogView()
+                RemedyFormView()
             }
         }
     }
@@ -102,7 +102,7 @@ struct RemedyRowLink: View {
     let remedy: Remedy
     
     var body: some View {
-        NavigationLink(destination: RemedyDetailView(remedy: remedy)) {
+        NavigationLink(destination: RemedyFormView(remedy: remedy)) {
             RemedyRow(remedy: remedy, remedyStatus: determineRemedyStatus(remedy: remedy))
         }
         .buttonStyle(PlainButtonStyle())

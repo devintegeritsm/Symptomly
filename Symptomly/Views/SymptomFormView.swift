@@ -244,7 +244,7 @@ struct SymptomFormView: View {
                 if !activeRemedies.isEmpty {
                     Section("Active Remedies") {
                         ForEach(activeRemedies) { remedy in
-                            NavigationLink(destination: RemedyDetailView(remedy: remedy)) {
+                            NavigationLink(destination: RemedyFormView(remedy: remedy)) {
                                 VStack(alignment: .leading) {
                                     HStack(spacing: 4) {
                                         Text(remedy.name)
