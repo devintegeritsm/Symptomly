@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct TimelineItem: Identifiable {
     let id = UUID()
@@ -19,6 +20,13 @@ struct TimelineView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var selectedDate = Date()
     @State private var showingCalendarPicker = false
+    
+    // Export state
+    @State private var showingExportOptions = false
+    @State private var exportStartDate = Calendar.current.date(byAdding: .month, value: -1, to: Date())!
+    @State private var exportEndDate = Date()
+    @State private var exportedFileURL: URL?
+    @State private var showingShareSheet = false
     
     // Pagination
     @State private var currentPage = 0
@@ -105,21 +113,32 @@ struct TimelineView: View {
                     
                     Spacer()
                     
-                    Button(action: {
-                        showingCalendarPicker.toggle()
-                    }) {
-                        Image(systemName: "calendar")
-                            .font(.system(size: 18))
-                    }
-                    .sheet(isPresented: $showingCalendarPicker) {
-                        CalendarPickerView(selectedDate: $selectedDate, onDateSelected: {
-                            updateDateRange(from: selectedDate)
-                            showingCalendarPicker = false
-                        })
-                        .frame(width: 340, height: 400)
-                        .padding()
-                        .presentationDetents([.height(450)])
-                        .presentationDragIndicator(.visible)
+                    HStack(spacing: 16) {
+                        // Export button
+                        Button(action: {
+                            showingExportOptions = true
+                        }) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 18))
+                        }
+                        
+                        // Calendar button
+                        Button(action: {
+                            showingCalendarPicker.toggle()
+                        }) {
+                            Image(systemName: "calendar")
+                                .font(.system(size: 18))
+                        }
+                        .sheet(isPresented: $showingCalendarPicker) {
+                            CalendarPickerView(selectedDate: $selectedDate, onDateSelected: {
+                                updateDateRange(from: selectedDate)
+                                showingCalendarPicker = false
+                            })
+                            .frame(width: 340, height: 400)
+                            .padding()
+                            .presentationDetents([.height(450)])
+                            .presentationDragIndicator(.visible)
+                        }
                     }
                 }
                 .padding(.horizontal)
@@ -182,6 +201,32 @@ struct TimelineView: View {
                 if let selectedDate = notification.userInfo?["selectedDate"] as? Date {
                     self.selectedDate = selectedDate
                     updateDateRange(from: selectedDate)
+                }
+            }
+            .sheet(isPresented: $showingExportOptions) {
+                ExportOptionsView(
+                    startDate: $exportStartDate,
+                    endDate: $exportEndDate,
+                    onExport: { startDate, endDate, action in
+                        exportTimeline(from: startDate, to: endDate, action: action)
+                        showingExportOptions = false
+                    }
+                )
+                .presentationDetents([.height(400)])
+                .presentationDragIndicator(.visible)
+            }
+            .onChange(of: exportedFileURL) { _, newURL in
+                // When URL changes and is not nil, update the sheet presentation
+                if newURL != nil && !showingShareSheet {
+                    showingShareSheet = true
+                }
+            }
+            .sheet(isPresented: $showingShareSheet, onDismiss: {
+                // Clear URL on dismiss
+                self.exportedFileURL = nil
+            }) {
+                if let url = self.exportedFileURL {
+                    ShareSheet(items: [url])
                 }
             }
         }
@@ -273,6 +318,179 @@ struct TimelineView: View {
         // Reset pagination when date range changes
         resetPagination()
     }
+    
+    // Export Timeline Functions
+    private func exportTimeline(from startDate: Date, to endDate: Date, action: ExportAction) {
+        self.exportStartDate = startDate
+        self.exportEndDate = endDate
+        
+        // Generate markdown content
+        let markdown = generateMarkdown(from: startDate, to: endDate)
+        print("Generated markdown content with \(markdown.count) characters")
+        
+        // Create file for sharing
+        guard let url = createTemporaryFile(content: markdown) else {
+            print("Failed to create temporary file")
+            return
+        }
+            
+        print("Successfully created file at: \(url.path)")
+        
+        // Set file attributes to make sure it's accessible
+        do {
+            try (url as NSURL).setResourceValue(true, forKey: .isReadableKey)
+            
+            // Set URL which will trigger the sheet presentation via onChange
+            self.exportedFileURL = url
+            
+        } catch {
+            print("Error setting resource value: \(error)")
+        }
+    }
+    
+    private func generateMarkdown(from startDate: Date, to endDate: Date) -> String {
+        // Find all items in the date range
+        let calendar = Calendar.current
+        let allItems = fetchTimelineItems(from: startDate, to: endDate)
+            .sorted { $0.timestamp > $1.timestamp }
+        
+        var markdown = "# Symptomly Timeline Export\n\n"
+        markdown += "**Export Date:** \(formatDate(Date()))\n"
+        markdown += "**Period:** \(formatDate(startDate)) to \(formatDate(endDate))\n\n"
+        
+        // Group by date
+        var currentDateString = ""
+        
+        for item in allItems {
+            let dateString = formatDate(calendar.startOfDay(for: item.timestamp))
+            
+            if dateString != currentDateString {
+                currentDateString = dateString
+                markdown += "\n## \(dateString)\n\n"
+            }
+            
+            // Format time
+            let timeString = formatTime(item.timestamp)
+            
+            // Item details
+            let itemType = item.type == .symptom ? "Symptom" : "Remedy"
+            markdown += "### \(timeString) - \(itemType): \(item.name)\n\n"
+            markdown += "\(item.details)\n\n"
+            markdown += "---\n\n"
+        }
+        
+        return markdown
+    }
+    
+    private func fetchTimelineItems(from startDate: Date, to endDate: Date) -> [TimelineItem] {
+        var items: [TimelineItem] = []
+        
+        // We need to fetch data for the specified date range, not the currently displayed range
+        let symptomPredicate = #Predicate<Symptom> { 
+            $0.timestamp >= startDate && $0.timestamp <= endDate
+        }
+        let remedyPredicate = #Predicate<Remedy> {
+            $0.takenTimestamp >= startDate && $0.takenTimestamp <= endDate
+        }
+        
+        let exportSymptoms = try? modelContext.fetch(FetchDescriptor<Symptom>(predicate: symptomPredicate, sortBy: [SortDescriptor(\.timestamp, order: .reverse)]))
+        let exportRemedies = try? modelContext.fetch(FetchDescriptor<Remedy>(predicate: remedyPredicate, sortBy: [SortDescriptor(\.takenTimestamp, order: .reverse)]))
+        
+        // Process symptoms
+        if let exportSymptoms {
+            for symptom in exportSymptoms {
+                items.append(TimelineItem(
+                    timestamp: symptom.timestamp,
+                    type: .symptom,
+                    name: symptom.name,
+                    details: "Severity: \(symptom.severityEnum.rawValue)" + (symptom.notes != nil ? " - \(symptom.notes!)" : ""),
+                    color: symptom.severityEnum.color
+                ))
+            }
+        }
+        
+        // Process remedies
+        if let exportRemedies {
+            for remedy in exportRemedies {
+                items.append(TimelineItem(
+                    timestamp: remedy.takenTimestamp,
+                    type: .remedy,
+                    name: remedy.name,
+                    details: "Potency: \(remedy.displayPotency)" + (remedy.notes != nil ? " - \(remedy.notes!)" : ""),
+                    color: .blue
+                ))
+            }
+        }
+        
+        return items
+    }
+    
+    private func createTemporaryFile(content: String) -> URL? {
+        // Use the app's documents directory for better sharing support
+        guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            print("Could not access documents directory")
+            return nil
+        }
+        
+        do {
+            // Create a unique filename with timestamp
+            let timestamp = Int(Date().timeIntervalSince1970)
+            let fileName = "Symptomly_Timeline_\(formatFileDate(Date()))_\(timestamp).md"
+            let fileURL = documentsDirectory.appendingPathComponent(fileName)
+            
+            print("Attempting to create file at: \(fileURL.path)")
+            
+            // Make sure content is not empty
+            guard !content.isEmpty else {
+                print("Cannot create file with empty content")
+                return nil
+            }
+            
+            // Remove any existing file
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                try FileManager.default.removeItem(at: fileURL)
+                print("Removed existing file")
+            }
+            
+            // Write the content to the file
+            try content.write(to: fileURL, atomically: true, encoding: .utf8)
+            
+            // Verify file was created successfully
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                let fileSize = try FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? Int ?? 0
+                print("File created successfully. Size: \(fileSize) bytes")
+                
+                // Make sure the file has the right attributes for sharing
+                try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: fileURL.path)
+                return fileURL
+            } else {
+                print("File does not exist after writing")
+                return nil
+            }
+        } catch {
+            print("Error creating file: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: date)
+    }
+    
+    private func formatFileDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
 }
 
 struct TimelineItemRow: View {
@@ -344,6 +562,132 @@ struct TimelineItemRow: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d"
         return formatter.string(from: date)
+    }
+}
+
+// Export options view
+enum ExportAction {
+    case share
+}
+
+struct ExportOptionsView: View {
+    @Binding var startDate: Date
+    @Binding var endDate: Date
+    @Environment(\.dismiss) private var dismiss
+    let onExport: (Date, Date, ExportAction) -> Void
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                Text("Export Timeline")
+                    .font(.headline)
+                    .padding(.top)
+                
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Select Date Range:")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    VStack(spacing: 16) {
+                        DatePicker("From", selection: $startDate, displayedComponents: [.date])
+                            .datePickerStyle(.compact)
+                        
+                        DatePicker("To", selection: $endDate, in: startDate..., displayedComponents: [.date])
+                            .datePickerStyle(.compact)
+                    }
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color(.secondarySystemBackground))
+                    )
+                }
+                .padding(.horizontal)
+                
+                Divider()
+                    .padding(.horizontal)
+                
+                Button(action: {
+                    onExport(startDate, endDate, .share)
+                }) {
+                    HStack {
+                        Image(systemName: "square.and.arrow.up")
+                        Text("Share Timeline")
+                            .fontWeight(.medium)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.blue)
+                    )
+                    .foregroundColor(.white)
+                }
+                .padding(.horizontal)
+                
+                Spacer()
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ShareSheet for UIActivityViewController
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        // Process items to ensure file URLs are handled properly
+        let processedItems = items.map { item -> Any in
+            guard let url = item as? URL else { return item }
+            
+            // For file URLs, create an activity item source that handles the file properly
+            return URLActivityItemSource(url: url)
+        }
+        
+        let controller = UIActivityViewController(activityItems: processedItems, applicationActivities: nil)
+        
+        // Ensure the controller works properly on iPad
+        if let popoverController = controller.popoverPresentationController {
+            popoverController.sourceView = UIView()
+            popoverController.permittedArrowDirections = []
+            popoverController.sourceRect = CGRect(x: UIScreen.main.bounds.midX, y: UIScreen.main.bounds.midY, width: 0, height: 0)
+        }
+        
+        return controller
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+// Custom activity item source to properly handle file URLs
+class URLActivityItemSource: NSObject, UIActivityItemSource {
+    let url: URL
+    
+    init(url: URL) {
+        self.url = url
+        super.init()
+    }
+    
+    func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
+        return url
+    }
+    
+    func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any? {
+        return url
+    }
+    
+    func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
+        return "Symptomly Timeline"
+    }
+    
+    func activityViewController(_ activityViewController: UIActivityViewController, dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?) -> String {
+        return UTType.plainText.identifier
     }
 }
 
