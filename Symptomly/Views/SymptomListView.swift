@@ -30,7 +30,24 @@ struct SymptomListView: View {
             } else {
                 ForEach(filteredSymptoms) { symptom in
                     SymptomRow(symptom: symptom)
-                        .swipeActions {
+                        .swipeActions(edge: .leading) {
+                            if !symptom.isResolved {
+                                Button {
+                                    toggleResolvedStatus(for: symptom)
+                                } label: {
+                                    Label("Mark Resolved", systemImage: "checkmark.circle")
+                                }
+                                .tint(.green)
+                            } else {
+                                Button {
+                                    toggleResolvedStatus(for: symptom)
+                                } label: {
+                                    Label("Mark Active", systemImage: "exclamationmark.circle")
+                                }
+                                .tint(.orange)
+                            }
+                        }
+                        .swipeActions(edge: .trailing) {
                             Button(role: .destructive) {
                                 deleteSymptom(symptom)
                             } label: {
@@ -46,6 +63,18 @@ struct SymptomListView: View {
                         }
                 }
             }
+        }
+    }
+    
+    private func toggleResolvedStatus(for symptom: Symptom) {
+        if symptom.isResolved {
+            // Mark as active with mild severity
+            symptom.severity = Severity.mild.rawValue
+            symptom.resolutionDate = nil
+        } else {
+            // Mark as resolved
+            symptom.severity = Severity.resolved.rawValue
+            symptom.resolutionDate = Date()
         }
     }
     

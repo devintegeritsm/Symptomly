@@ -17,6 +17,9 @@ struct SymptomLogView: View {
     @State private var severity: Int = 2  // Default to moderate
     @State private var notes: String = ""
     @State private var timestamp: Date
+    @State private var isResolved: Bool = false
+    @State private var resolutionDate: Date = Date()
+    @State private var showResolutionDatePicker: Bool = false
     @State private var showSuggestions: Bool = false
     @State private var skipSuggestions: Bool = false
     @State private var filteredSuggestions: [String] = []
@@ -129,19 +132,51 @@ struct SymptomLogView: View {
                     }
                 }
                 
-                Section("Severity") {
-                    Picker("Severity", selection: $severity) {
-                        ForEach(Severity.allCases, id: \.rawValue) { severityLevel in
-                            Text(severityLevel.displayName).tag(severityLevel.rawValue)
+                Section {
+                    Toggle("Mark as resolved", isOn: $isResolved)
+                        .onChange(of: isResolved) { oldValue, newValue in
+                            if newValue {
+                                severity = Severity.resolved.rawValue
+                                resolutionDate = Date()
+                                showResolutionDatePicker = true
+                            } else {
+                                severity = Severity.mild.rawValue
+                            }
+                        }
+                    
+                    if isResolved {
+                        Button(action: {
+                            showResolutionDatePicker.toggle()
+                        }) {
+                            HStack {
+                                Text("Resolution Date")
+                                Spacer()
+                                Text(resolutionDate.formatted(.dateTime.month().day().hour().minute()))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        
+                        if showResolutionDatePicker {
+                            CustomDatePicker(selection: $resolutionDate, includeTime: true)
                         }
                     }
-                    .pickerStyle(.segmented)
                 }
                 
-                Section("When did it occur?") {
-                    VStack(alignment: .leading) {
-                        Text("Time:")
-                        CustomDatePicker(selection: $timestamp, includeTime: true)
+                if !isResolved {
+                    Section("Severity") {
+                        Picker("Severity", selection: $severity) {
+                            ForEach(Array(Severity.allCases.filter { $0 != .resolved }), id: \.rawValue) { severityLevel in
+                                Text(severityLevel.displayName).tag(severityLevel.rawValue)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    
+                    Section("When did it occur?") {
+                        VStack(alignment: .leading) {
+                            Text("Time:")
+                            CustomDatePicker(selection: $timestamp, includeTime: true)
+                        }
                     }
                 }
                 
@@ -176,17 +211,17 @@ struct SymptomLogView: View {
             }
             .navigationTitle("Log Symptom")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-                
-                ToolbarItem(placement: .confirmationAction) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Save") {
                         saveSymptom()
                     }
                     .disabled(name.isEmpty)
+                }
+                
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
                 }
             }
             // For dismissing keyboard when tapping outside, you might need this on a scrollable container or the Form
@@ -229,22 +264,16 @@ struct SymptomLogView: View {
     }
     
     private func saveSymptom() {
+        let resolutionDateValue = isResolved ? resolutionDate : nil
         let newSymptom = Symptom(
-            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            name: name,
             severity: severity,
             timestamp: timestamp,
-            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes.trimmingCharacters(in: .whitespacesAndNewlines)
+            notes: notes.isEmpty ? nil : notes,
+            resolutionDate: resolutionDateValue
         )
         
-        // Ensure name is not empty after trimming
-        guard !newSymptom.name.isEmpty else {
-            // Optionally show an alert to the user
-            print("Symptom name cannot be empty after trimming.")
-            return
-        }
-        
         modelContext.insert(newSymptom)
-        
         dismiss()
     }
     

@@ -4,4 +4,4 @@ globs:
 alwaysApply: true
 ---
 
-- understand project and its structure and files before taking any actions
+- index or reindex to understand this project, its structure and files before taking any actions

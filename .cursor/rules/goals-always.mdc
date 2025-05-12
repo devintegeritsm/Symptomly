@@ -8,4 +8,4 @@ alwaysApply: true
 - Secondary Goal: Allow users to review their symptom history to identify patterns or triggers.
 - Tertiary Goal: Encourage consistent logging through a daily reminder.
 - User Experience Goal: Provide a clean, uncluttered, and intuitive user interface.
-- Accessibility: In general prefer vertical stack over horizontal in card layouts to address devices with enlarged text sizes
+- Accessibility: Prefer VStack over HStack in layouts where appropriate to address devices with enlarged text sizes

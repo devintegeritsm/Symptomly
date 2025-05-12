@@ -36,8 +36,8 @@ alwaysApply: false
 - Reminder Time Configuration.
 - Reminder On/Off Toggle.
 
-- 5.7  Remedy Card (new)
-- Present a Remedy Card component on the Logging screen with a visually distinct style (pill‑shaped container, teal accent background).
+- 5.7 Remedy Card (new)
+- Present a Remedy Card component on the Logging screen with a visually distinct style (flask-shaped container, teal accent background).
 - Remedy Name  
   - Provide a text input with autocomplete.  
   - Autocomplete priority: remedies previously entered by the user (local history) ⇒ predefined remedies list.
@@ -76,13 +76,13 @@ alwaysApply: false
 - On the Daily View calendar:  
   - Show remedy entries on their *taken* timestamps.  
   - If repeat schedule is enabled, show future occurrences as faded placeholders.  
-- On each Symptom Card, list active remedies whose *wait-and-watch* window encompasses the symptom's timestamp OR whose repeat schedule overlaps the symptom date. Use a small "pill" label (`RemedyName • Potency`) under the symptom intensity bar.
+- On each Symptom Card, list active remedies whose *wait-and-watch* window encompasses the symptom's timestamp OR whose repeat schedule overlaps the symptom date. Use a small "flask" label (`RemedyName • Potency`) under the symptom intensity bar.
 
-- 5.9 Easy add acure remedy to symptom
+- 5.9 Easy add acute remedy to symptom
 - implement an option to add a new remedy (could be multiple) taken when logging or editing a symptom
 - this remedy will be marked as acute response to a symptom and linked to the symptom
 
-- 5.10 Add acure remedy to symptom
+- 5.10 Add acute remedy to symptom
 - implement an option to add a new remedy (could be multiple) taken when logging or editing a symptom
 - this remedy will be marked as acute response to a symptom and linked to the symptom
 

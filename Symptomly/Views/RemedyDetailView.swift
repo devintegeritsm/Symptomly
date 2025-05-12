@@ -126,8 +126,8 @@ struct RemedyDetailView: View {
                             }
                         } else {
                             Image(systemName: "timer").foregroundColor(.secondary)
-                            Text("Wait and watch until \(formatDate(remedy.effectivenessDueDate))")
-                                .foregroundColor(remedy.isActive ? .green : .red)
+                            Text("Wait and watch until \(formatDateTime(remedy.effectivenessDueDate))")
+                                .foregroundColor(remedy.isActive ? .green : .gray)
                         }
                     }
                 }

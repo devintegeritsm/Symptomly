@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 
 enum Severity: Int, Codable, CaseIterable, Identifiable {
+    case resolved = 0
     case mild = 1
     case moderate = 2
     case severe = 3
@@ -18,6 +19,7 @@ enum Severity: Int, Codable, CaseIterable, Identifiable {
     
     var displayName: String {
         switch self {
+        case .resolved: return "Resolved"
         case .mild: return "Mild"
         case .moderate: return "Moderate"
         case .severe: return "Severe"
@@ -27,10 +29,11 @@ enum Severity: Int, Codable, CaseIterable, Identifiable {
     
     var color: Color {
         switch self {
-        case .mild: return .green
-        case .moderate: return .yellow
-        case .severe: return .orange
-        case .extreme: return .red
+        case .resolved: return .green
+        case .mild: return .yellow
+        case .moderate: return .orange
+        case .severe: return .red
+        case .extreme: return .purple
         }
     }
 } 
