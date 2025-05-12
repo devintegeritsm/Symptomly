@@ -23,7 +23,7 @@ struct SymptomLogView: View {
     @State private var showSuggestions: Bool = false
     @State private var skipSuggestions: Bool = false
     @State private var filteredSuggestions: [String] = []
-    @State private var dicCompletions: [String] = []
+    @State private var dictionaryCompletions: [String] = []
     @FocusState private var isNameFieldFocused: Bool
     
     @Query private var allRemedies: [Remedy]
@@ -104,13 +104,13 @@ struct SymptomLogView: View {
                                     }
                                 }
                                 
-                                if !dicCompletions.isEmpty {
+                                if !dictionaryCompletions.isEmpty {
                                     VStack(alignment: .leading) {
                                         Text("Dictionary suggestions:")
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                         FlowLayout(spacing: 8) {
-                                            ForEach(dicCompletions, id: \.self) { suggestion in
+                                            ForEach(dictionaryCompletions, id: \.self) { suggestion in
                                                 Button(action: {
                                                     name = suggestion
                                                     showSuggestions = false
@@ -250,23 +250,42 @@ struct SymptomLogView: View {
         }.sorted()
         showSuggestions = !filteredSuggestions.isEmpty
         
-        let textChecker = UITextChecker()
-        let nsString = query as NSString
-        let wordRange = NSRange(location: 0, length: nsString.length)
-        let preferredLanguage = Locale.preferredLanguages.first ?? "en_US"
-//        let completions = textChecker.completions(forPartialWordRange: wordRange, in: query, language: "en_US") ?? []
-        let completions = textChecker.guesses(forWordRange: wordRange, in: query, language: preferredLanguage) ?? []
-        if !completions.isEmpty {
-            let suggestionsSet = Set(filteredSuggestions)
-            dicCompletions = completions.filter { !suggestionsSet.contains($0) }
-            showSuggestions = showSuggestions || !dicCompletions.isEmpty
+        // Get completions only for the last word in the query
+        if let lastWord = query.components(separatedBy: .whitespacesAndNewlines).last, !lastWord.isEmpty {
+            let textChecker = UITextChecker()
+            let nsString = lastWord as NSString
+            let wordRange = NSRange(location: 0, length: nsString.length)
+            let preferredLanguage = Locale.preferredLanguages.first ?? "en_US"
+            let completions = textChecker.completions(forPartialWordRange: wordRange, in: lastWord, language: preferredLanguage) ?? []
+            
+            if !completions.isEmpty {
+                let suggestionsSet = Set(filteredSuggestions)
+                // Get the prefix of the query without the last word
+                let prefix = query.dropLast(lastWord.count).trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                // Create full suggestions by combining prefix with completions
+                dictionaryCompletions = completions.map { completion in
+                    prefix.isEmpty ? completion : "\(prefix) \(completion)"
+                }
+                .filter { !suggestionsSet.contains($0) }
+                .filter { $0 != query }
+                
+                dictionaryCompletions = Array(dictionaryCompletions.prefix(5))
+                
+                showSuggestions = showSuggestions || !dictionaryCompletions.isEmpty
+            } else {
+                dictionaryCompletions = []
+            }
+        } else {
+            dictionaryCompletions = []
         }
     }
     
     private func saveSymptom() {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolutionDateValue = isResolved ? resolutionDate : nil
         let newSymptom = Symptom(
-            name: name,
+            name: trimmedName,
             severity: severity,
             timestamp: timestamp,
             notes: notes.isEmpty ? nil : notes,

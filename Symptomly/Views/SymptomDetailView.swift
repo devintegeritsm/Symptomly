@@ -21,7 +21,13 @@ struct SymptomDetailView: View {
     @State private var isResolved: Bool
     @State private var resolutionDate: Date
     @State private var showResolutionDatePicker: Bool = false
+    @State private var showSuggestions: Bool = false
+    @State private var skipSuggestions: Bool = false
+    @State private var filteredSuggestions: [String] = []
+    @State private var dictionaryCompletions: [String] = []
+    @FocusState private var isNameFieldFocused: Bool
     
+    @Query private var existingSymptoms: [Symptom]
     @Query private var allRemedies: [Remedy]
     
     var activeRemedies: [Remedy] {
@@ -46,6 +52,79 @@ struct SymptomDetailView: View {
             Form {
                 Section("Symptom Name") {
                     TextField("Enter symptom name", text: $name)
+                        .focused($isNameFieldFocused)
+                        .onChange(of: name) { _, newValue in
+                            if !newValue.isEmpty {
+                                if skipSuggestions {
+                                    skipSuggestions = false
+                                    return
+                                }
+                                updateSuggestions(query: newValue)
+                            } else {
+                                showSuggestions = false
+                            }
+                        }
+                        .autocorrectionDisabled(true)
+                    
+                    if showSuggestions {
+                        VStack(alignment: .leading) {
+                            ScrollView {
+                                if !filteredSuggestions.isEmpty {
+                                    VStack(alignment: .leading) {
+                                        Text("Previously used symptoms:")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        FlowLayout(spacing: 8) {
+                                            ForEach(filteredSuggestions, id: \.self) { suggestion in
+                                                Button(action: {
+                                                    name = suggestion
+                                                    showSuggestions = false
+                                                    skipSuggestions = true
+                                                    hideKeyboard()
+                                                }) {
+                                                    Text(suggestion)
+                                                        .padding(.horizontal, 12)
+                                                        .padding(.vertical, 6)
+                                                        .background(Color.accentColor.opacity(0.1))
+                                                        .foregroundColor(.accentColor)
+                                                        .cornerRadius(16)
+                                                        .overlay(
+                                                            RoundedRectangle(cornerRadius: 16)
+                                                                .stroke(Color.accentColor.opacity(0.3), lineWidth: 1)
+                                                        )
+                                                }
+                                                .buttonStyle(PlainButtonStyle())
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                if !dictionaryCompletions.isEmpty {
+                                    VStack(alignment: .leading) {
+                                        Text("Dictionary suggestions:")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        FlowLayout(spacing: 8) {
+                                            ForEach(dictionaryCompletions, id: \.self) { suggestion in
+                                                Button(action: {
+                                                    name = suggestion
+                                                    showSuggestions = false
+                                                    skipSuggestions = true
+                                                    hideKeyboard()
+                                                }) {
+                                                    Text(suggestion)
+                                                }
+                                                .buttonStyle(PlainButtonStyle())
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            .frame(maxHeight: 200)
+                        }
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        .animation(.easeInOut, value: showSuggestions)
+                    }
                 }
                 
                 Section {
@@ -156,11 +235,68 @@ struct SymptomDetailView: View {
                     }
                 }
             }
+            .onTapGesture {
+                hideKeyboard()
+            }
+        }
+        .onAppear {
+            // Automatically focus the field when the view appears
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.isNameFieldFocused = true
+            }
         }
     }
     
+    private func updateSuggestions(query: String) {
+        let lowercasedQuery = query.lowercased()
+        // Fetch unique names once or efficiently if this list changes frequently
+        let uniqueSymptomNames = Set(existingSymptoms.map { $0.name })
+        // Filter more efficiently
+        // Also, ensure the query itself isn't immediately shown as a suggestion if it's a full match
+        // unless that's desired behavior.
+        filteredSuggestions = Array(uniqueSymptomNames).filter {
+            $0.lowercased().contains(lowercasedQuery) && $0.lowercased() != lowercasedQuery
+        }.sorted()
+        showSuggestions = !filteredSuggestions.isEmpty
+        
+        // Get completions only for the last word in the query
+        if let lastWord = query.components(separatedBy: .whitespacesAndNewlines).last, !lastWord.isEmpty {
+            let textChecker = UITextChecker()
+            let nsString = lastWord as NSString
+            let wordRange = NSRange(location: 0, length: nsString.length)
+            let preferredLanguage = Locale.preferredLanguages.first ?? "en_US"
+            let completions = textChecker.completions(forPartialWordRange: wordRange, in: lastWord, language: preferredLanguage) ?? []
+            
+            if !completions.isEmpty {
+                let suggestionsSet = Set(filteredSuggestions)
+                // Get the prefix of the query without the last word
+                let prefix = query.dropLast(lastWord.count).trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                // Create full suggestions by combining prefix with completions
+                dictionaryCompletions = completions.map { completion in
+                    prefix.isEmpty ? completion : "\(prefix) \(completion)"
+                }
+                .filter { !suggestionsSet.contains($0) }
+                .filter { $0 != query }
+                
+                dictionaryCompletions = Array(dictionaryCompletions.prefix(5))
+                
+                showSuggestions = showSuggestions || !dictionaryCompletions.isEmpty
+            } else {
+                dictionaryCompletions = []
+            }
+        } else {
+            dictionaryCompletions = []
+        }
+    }
+    
+    private func hideKeyboard() {
+        Utils.hideKeyboard()
+    }
+    
     private func updateSymptom() {
-        symptom.name = name
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        symptom.name = trimmedName
         symptom.severity = severity
         symptom.timestamp = timestamp
         symptom.notes = notes.isEmpty ? nil : notes
