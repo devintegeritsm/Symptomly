@@ -21,6 +21,11 @@ struct TimelineView: View {
     @State private var selectedDate = Date()
     @State private var showingCalendarPicker = false
     
+    // Search state
+    @State private var searchText = ""
+    @State private var isSearching = false
+    @State private var searchFilter: SearchFilter = .all
+    
     // Export state
     @State private var showingExportOptions = false
     @State private var exportStartDate = Calendar.current.date(byAdding: .month, value: -1, to: Date())!
@@ -40,6 +45,18 @@ struct TimelineView: View {
     
     @Query private var symptoms: [Symptom]
     @Query private var remedies: [Remedy]
+    
+    // Search filter enum
+    enum SearchFilter: String, CaseIterable {
+        case all = "All"
+        case symptoms = "Symptoms"
+        case remedies = "Remedies"
+        case mild = "Mild"
+        case moderate = "Moderate"
+        case severe = "Severe"
+        case extreme = "Extreme"
+        case resolved = "Resolved"
+    }
     
     init() {
         // Default to showing current date range
@@ -73,8 +90,8 @@ struct TimelineView: View {
                 type: .symptom,
                 name: symptom.name,
                 details: (symptom.isResolved
-                          ? "Resolved: \(Utils.formatDateTime(symptom.timestamp))"
-                          : "Severity: \(symptom.severityEnum.rawValue)")
+                          ? "Resolved"
+                          : "Severity: \(symptom.severityEnum.displayName)")
                     + (symptom.notes != nil ? " - \(symptom.notes!)" : ""),
                 color: symptom.severityEnum.color
             ))
@@ -95,14 +112,59 @@ struct TimelineView: View {
         return items.sorted { $0.timestamp > $1.timestamp }
     }
     
+    var filteredItems: [TimelineItem] {
+        if searchText.isEmpty && searchFilter == .all {
+            return timelineItems
+        }
+        
+        return timelineItems.filter { item in
+            var matchesFilter = true
+            
+            // Apply category filter
+            switch searchFilter {
+            case .symptoms:
+                matchesFilter = item.type == .symptom
+            case .remedies:
+                matchesFilter = item.type == .remedy
+            case .mild, .moderate, .severe, .extreme, .resolved:
+                // Only apply to symptoms
+                if item.type == .symptom {
+                    let severityString = searchFilter.rawValue
+                    matchesFilter = item.details.contains("Severity: \(severityString)") || 
+                                   (searchFilter == .resolved && item.details.contains("Resolved"))
+                } else {
+                    matchesFilter = false
+                }
+            case .all:
+                matchesFilter = true
+            }
+            
+            // If no search text, just return the filter result
+            if searchText.isEmpty {
+                return matchesFilter
+            }
+            
+            // Apply text search if we have search text
+            let searchLowercased = searchText.lowercased()
+            
+            // Search in name
+            let nameMatch = item.name.lowercased().contains(searchLowercased)
+            
+            // Search in details (notes and potency)
+            let detailsMatch = item.details.lowercased().contains(searchLowercased)
+            
+            return matchesFilter && (nameMatch || detailsMatch)
+        }
+    }
+    
     var paginatedItems: [TimelineItem] {
-        if timelineItems.isEmpty {
+        if filteredItems.isEmpty {
             return []
         }
         
         // With continuous scrolling, we'll show all loaded items
-        let endIndex = min((currentPage + 1) * itemsPerPage, timelineItems.count)
-        return Array(timelineItems[0..<endIndex])
+        let endIndex = min((currentPage + 1) * itemsPerPage, filteredItems.count)
+        return Array(filteredItems[0..<endIndex])
     }
     
     var body: some View {
@@ -117,6 +179,13 @@ struct TimelineView: View {
                     Spacer()
                     
                     HStack(spacing: 16) {
+                        Button(action: {
+                            isSearching.toggle()
+                        }) {
+                            Image(systemName: isSearching ? "xmark" : "magnifyingglass")
+                                .font(.system(size: 18))
+                        }
+                        
                         // Export button
                         Button(action: {
                             showingExportOptions = true
@@ -149,6 +218,54 @@ struct TimelineView: View {
                 .padding(.bottom, 8)
                 .background(Color(.systemBackground))
                 
+                // Search bar
+                if isSearching {
+                    VStack(spacing: 8) {
+                        // Search text field
+                        HStack {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundColor(.gray)
+                            
+                            TextField("Search symptoms, remedies...", text: $searchText)
+                                .disableAutocorrection(true)
+                                .autocapitalization(.none)
+                            
+                            if !searchText.isEmpty {
+                                Button(action: {
+                                    searchText = ""
+                                }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.gray)
+                                }
+                            }
+                        }
+                        .padding(8)
+                        .background(Color(.secondarySystemBackground))
+                        .cornerRadius(10)
+                        .padding(.horizontal)
+                        
+                        // Filter chips
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(SearchFilter.allCases, id: \.self) { filter in
+                                    FilterChip(
+                                        text: filter.rawValue,
+                                        isSelected: searchFilter == filter,
+                                        color: filterColor(for: filter)
+                                    ) {
+                                        searchFilter = filter
+                                    }
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
+                    .padding(.bottom, 8)
+                    .background(Color(.systemBackground))
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .animation(.easeInOut, value: isSearching)
+                }
+                
                 // Timeline content
                 if paginatedItems.isEmpty {
                     VStack(spacing: 20) {
@@ -157,13 +274,23 @@ struct TimelineView: View {
                             .foregroundColor(.secondary.opacity(0.6))
                             .padding(.top, 60)
                         
-                        Text("No events in this period")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                        
-                        Text("Try selecting a different date range")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary.opacity(0.8))
+                        if !searchText.isEmpty || searchFilter != .all {
+                            Text("No matching items")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                            
+                            Text("Try changing your search or filters")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary.opacity(0.8))
+                        } else {
+                            Text("No events in this period")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                            
+                            Text("Try selecting a different date range")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary.opacity(0.8))
+                        }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color(.systemGroupedBackground))
@@ -232,6 +359,12 @@ struct TimelineView: View {
                     ShareSheet(items: [url])
                 }
             }
+            .onChange(of: searchText) { _, _ in
+                resetPagination()
+            }
+            .onChange(of: searchFilter) { _, _ in
+                resetPagination()
+            }
         }
     }
     
@@ -263,9 +396,9 @@ struct TimelineView: View {
             // Check if we have more content to load
             let nextPageStart = (currentPage + 1) * itemsPerPage
             
-            if nextPageStart < timelineItems.count {
+            if nextPageStart < filteredItems.count {
                 currentPage += 1
-                hasMoreContent = (currentPage + 1) * itemsPerPage < timelineItems.count
+                hasMoreContent = (currentPage + 1) * itemsPerPage < filteredItems.count
             } else {
                 hasMoreContent = false
             }
@@ -292,6 +425,23 @@ struct TimelineView: View {
         
         // Reset pagination when date range changes
         resetPagination()
+    }
+    
+    private func filterColor(for filter: SearchFilter) -> Color {
+        switch filter {
+        case .all, .symptoms, .remedies:
+            return .blue
+        case .mild:
+            return .yellow
+        case .moderate:
+            return .orange
+        case .severe:
+            return .red
+        case .extreme:
+            return .purple
+        case .resolved:
+            return .green
+        }
     }
     
     // Export Timeline Functions
@@ -378,7 +528,7 @@ struct TimelineView: View {
                     timestamp: symptom.timestamp,
                     type: .symptom,
                     name: symptom.name,
-                    details: "Severity: \(symptom.severityEnum.rawValue)" + (symptom.notes != nil ? " - \(symptom.notes!)" : ""),
+                    details: (symptom.isResolved ? "Resolved" : "Severity: \(symptom.severityEnum.displayName)") + (symptom.notes != nil ? " - \(symptom.notes!)" : ""),
                     color: symptom.severityEnum.color
                 ))
             }
@@ -475,11 +625,11 @@ struct TimelineItemRow: View {
         HStack(alignment: .top, spacing: 16) {
             // Left column for time
             VStack(alignment: .trailing, spacing: 4) {
-                Text(formatTime(item.timestamp))
+                Text(formatDate(item.timestamp))
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 
-                Text(formatDate(item.timestamp))
+                Text(formatTime(item.timestamp))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -555,7 +705,7 @@ struct TimelineItemRow: View {
     
     // Function to extract severity from the details string
     private func getSeverityFromDetails(_ details: String) -> Severity {
-        if details.contains("Resolved:") {
+        if details.contains("Resolved") {
             return .resolved
         }
         
@@ -576,7 +726,7 @@ struct TimelineItemRow: View {
     
     // Function to extract notes from the details
     private func extractNotes(from details: String) -> String? {
-        // Expected format for symptoms: "Severity: X - Notes" or "Resolved: <date> - Notes"
+        // Expected format for symptoms: "Severity: X - Notes" or "Resolved - Notes"
         if details.contains(" - ") {
             let components = details.split(separator: " - ", maxSplits: 1)
             if components.count > 1 {
@@ -717,6 +867,29 @@ class URLActivityItemSource: NSObject, UIActivityItemSource {
     
     func activityViewController(_ activityViewController: UIActivityViewController, dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?) -> String {
         return UTType.plainText.identifier
+    }
+}
+
+// Filter chip for the search UI
+struct FilterChip: View {
+    let text: String
+    let isSelected: Bool
+    let color: Color
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(text)
+                .font(.footnote)
+                .fontWeight(isSelected ? .semibold : .regular)
+                .foregroundColor(isSelected ? .white : .primary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill(isSelected ? color : Color(.systemGray5))
+                )
+        }
     }
 }
 
