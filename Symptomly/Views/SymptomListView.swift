@@ -27,6 +27,26 @@ struct SymptomListView: View {
         }.sorted { $0.timestamp > $1.timestamp }
     }
     
+    func isSymptomRecentlyResolved(_ symptom: Symptom) -> (resolved: Bool, timestamp: Date?) {
+        // Skip if the symptom itself is already resolved
+        if symptom.isResolved {
+            return (false, nil)
+        }
+        
+        // Find the most recent symptom with the same name that's not the current symptom
+        let mostRecentWithSameName = allSymptoms
+            .filter { $0.name == symptom.name && $0.id != symptom.id }
+            .sorted { $0.timestamp > $1.timestamp }
+            .first
+            
+        // If the most recent symptom has severity 0 (resolved), return true and its timestamp
+        if let mostRecent = mostRecentWithSameName, mostRecent.isResolved {
+            return (true, mostRecent.timestamp)
+        }
+        
+        return (false, nil)
+    }
+    
     var body: some View {
         List {
             if filteredSymptoms.isEmpty {
@@ -37,7 +57,15 @@ struct SymptomListView: View {
                 )
             } else {
                 ForEach(filteredSymptoms) { symptom in
-                    SymptomRow(symptom: symptom)
+                    let resolutionInfo = isSymptomRecentlyResolved(symptom)
+                    SymptomRow(
+                        symptom: symptom, 
+                        isRecentlyResolved: resolutionInfo.resolved,
+                        resolutionTimestamp: resolutionInfo.timestamp,
+                        onResolutionTap: { date in
+                            selectedDate = date
+                        }
+                    )
                         .swipeActions(edge: .leading) {
                             if !symptom.isResolved {
                                 Button {
