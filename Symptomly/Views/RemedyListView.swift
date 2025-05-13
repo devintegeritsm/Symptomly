@@ -14,10 +14,13 @@ struct RemedyListView: View {
     
     @Query(sort: \Remedy.takenTimestamp, order: .reverse) private var allRemedies: [Remedy]
     
+    @State private var remedyToDelete: Remedy?
+    @State private var showDeleteConfirmation = false
+    
     var body: some View {
         NavigationStack {
             VStack {
-                RemedyListContent(allRemedies: allRemedies)
+                RemedyListContent(allRemedies: allRemedies, remedyToDelete: $remedyToDelete, showDeleteConfirmation: $showDeleteConfirmation)
             }
             .navigationTitle("Remedies")
             .toolbar {
@@ -32,7 +35,34 @@ struct RemedyListView: View {
             .sheet(isPresented: $showingRemedyLog) {
                 RemedyFormView()
             }
+            .alert("Delete Remedy", isPresented: $showDeleteConfirmation) {
+                Button("Cancel", role: .cancel) {
+                    remedyToDelete = nil
+                }
+                Button("Delete", role: .destructive) {
+                    if let remedy = remedyToDelete {
+                        deleteRemedy(remedy)
+                        remedyToDelete = nil
+                    }
+                }
+            } message: {
+                if let remedy = remedyToDelete {
+                    Text("Are you sure you want to delete '\(remedy.name)'? This action cannot be undone.")
+                } else {
+                    Text("Are you sure you want to delete this remedy? This action cannot be undone.")
+                }
+            }
         }
+    }
+    
+    private func deleteRemedy(_ remedy: Remedy) {
+        // Cancel notifications before deletion
+        NotificationManager.shared.cancelNotifications(identifiers: remedy.notificationIdentifiers)
+        
+        modelContext.delete(remedy)
+        
+        // Notify that a remedy was deleted
+        NotificationCenter.default.post(name: NSNotification.Name("DidDeleteRemedy"), object: nil)
     }
     
     private func determineRemedyStatus(remedy: Remedy) -> RemedyStatus {
@@ -55,57 +85,36 @@ struct RemedyListView: View {
 
 // Extracted content view to simplify the main view hierarchy
 struct RemedyListContent: View {
+    @Environment(\.modelContext) private var modelContext
     let allRemedies: [Remedy]
+    @Binding var remedyToDelete: Remedy?
+    @Binding var showDeleteConfirmation: Bool
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if allRemedies.isEmpty {
-                    EmptyRemedyView()
-                } else {
-                    RemedyListSection(remedies: allRemedies)
+        List {
+            if allRemedies.isEmpty {
+                EmptyRemedyView()
+            } else {
+                ForEach(allRemedies) { remedy in
+                    RemedyRow(remedy: remedy, remedyStatus: determineRemedyStatus(remedy: remedy))
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) {
+                                remedyToDelete = remedy
+                                showDeleteConfirmation = true
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                            
+                            NavigationLink {
+                                RemedyFormView(remedy: remedy, mode: .edit)
+                            } label: {
+                                Label("Edit", systemImage: "pencil")
+                            }
+                            .tint(.blue)
+                        }
                 }
             }
-            .padding()
         }
-    }
-}
-
-// Empty state view
-struct EmptyRemedyView: View {
-    var body: some View {
-        ContentUnavailableView(
-            "No Remedies",
-            systemImage: "flask",
-            description: Text("You haven't logged any remedies yet.")
-        )
-        .padding(.top, 50)
-    }
-}
-
-// Section containing the list of remedies
-struct RemedyListSection: View {
-    let remedies: [Remedy]
-    
-    var body: some View {
-        Section {
-            ForEach(remedies) { remedy in
-                RemedyRowLink(remedy: remedy)
-                Divider()
-            }
-        }
-    }
-}
-
-// Navigation link with remedy row
-struct RemedyRowLink: View {
-    let remedy: Remedy
-    
-    var body: some View {
-        NavigationLink(destination: RemedyFormView(remedy: remedy)) {
-            RemedyRow(remedy: remedy, remedyStatus: determineRemedyStatus(remedy: remedy))
-        }
-        .buttonStyle(PlainButtonStyle())
     }
     
     private func determineRemedyStatus(remedy: Remedy) -> RemedyStatus {
@@ -124,4 +133,16 @@ struct RemedyRowLink: View {
         // Not in wait period and not on schedule
         return .completed
     }
-} 
+}
+
+// Empty state view
+struct EmptyRemedyView: View {
+    var body: some View {
+        ContentUnavailableView(
+            "No Remedies",
+            systemImage: "flask",
+            description: Text("You haven't logged any remedies yet.")
+        )
+        .padding(.top, 50)
+    }
+}

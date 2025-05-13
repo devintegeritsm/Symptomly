@@ -81,18 +81,6 @@ struct DailySymptomView: View {
                         Image(systemName: "plus")
                     }
                 }
-                
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        // Switch to Timeline tab and show this date
-                        publishSelectedDate()
-                        // Use TabView selection if needed in the future
-                    } label: {
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 14))
-                    }
-                    .help("View in Timeline")
-                }
             }
             .sheet(isPresented: $showingSymptomLog) {
                 SymptomFormView(selectedDate: selectedDate)

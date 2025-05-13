@@ -65,7 +65,6 @@ struct RemedyFormView: View {
     // View mode enum for configuring the view
     enum ViewMode {
         case create
-        case view
         case edit
     }
     
@@ -100,7 +99,7 @@ struct RemedyFormView: View {
     }
     
     // Initialize for viewing/editing an existing remedy
-    init(remedy: Remedy, mode: ViewMode = .view) {
+    init(remedy: Remedy, mode: ViewMode = .edit) {
         self.mode = mode
         self.remedy = remedy
         
@@ -154,17 +153,12 @@ struct RemedyFormView: View {
         _recurrenceInterval = State(initialValue: remedy.recurrenceInterval ?? 12)
         _recurrenceEndDate = State(initialValue: remedy.recurrenceEndDate ?? Date().addingTimeInterval(30 * 24 * 60 * 60))
         
-        // Set editing mode based on the requested mode
         _isEditing = State(initialValue: mode == .edit)
     }
     
     var body: some View {
         let content = Group {
-            if mode == .create || isEditing {
-                editFormView
-            } else {
-                detailView
-            }
+            editFormView
         }
         
         if mode == .create {
@@ -189,21 +183,14 @@ struct RemedyFormView: View {
             .backgroundStyle(.thickMaterial)
         } else {
             content
-                .navigationTitle("Remedy Details")
-                .navigationBarTitleDisplayMode(.inline)
+                .navigationTitle("Edit Remedy")
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
-                        if isEditing {
                             Button("Save") {
                                 saveChanges()
                                 isEditing = false
                             }
                             .disabled(name.isEmpty || (potency == RemedyPotency.other.rawValue && customPotency.isEmpty))
-                        } else {
-                            Button("Edit") {
-                                isEditing = true
-                            }
-                        }
                     }
                     
                     ToolbarItem(placement: .destructiveAction) {
@@ -396,126 +383,6 @@ struct RemedyFormView: View {
         }
     }
     
-    // MARK: - Detail View
-    
-    private var detailView: some View {
-        guard let remedy = remedy else {
-            return AnyView(EmptyView())
-        }
-        
-        return AnyView(
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Header with name and potency
-                    HStack {
-                        Text(remedy.name)
-                            .font(.title)
-                            .bold()
-                        
-                        Spacer()
-                        
-                        Text(remedy.displayPotency)
-                            .font(.title3)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(Color.teal.opacity(0.2))
-                            .foregroundColor(.teal)
-                            .cornerRadius(12)
-                    }
-                    .padding(.bottom, 8)
-                    
-                    Divider()
-                    
-                    // Timing information
-                    VStack(alignment: .leading, spacing: 12) {
-                        let calendar = Calendar.current
-                        if !calendar.isDate(remedy.prescribedTimestamp, inSameDayAs: remedy.takenTimestamp) {
-                            HStack {
-                                Image(systemName: "calendar.badge.clock").foregroundColor(.secondary)
-                                Text("Prescribed on \(formatDateTime(remedy.prescribedTimestamp))")
-                            }
-                        }
-                        
-                        HStack {
-                            Image(systemName: "calendar").foregroundColor(.secondary)
-                            Text("Taken on \(formatDateTime(remedy.takenTimestamp))")
-                        }
-                        
-                        HStack {
-                            Image(systemName: "timer").foregroundColor(.secondary)
-                            Text("Wait and watch until \(formatDateTime(remedy.effectivenessDueDate))")
-                                .foregroundColor(remedy.isActive ? .green : .gray)
-                        }
-                    }
-                    .padding(.vertical, 8)
-                    
-                    Divider()
-                    
-                    // Recurrence information
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Image(systemName: "repeat")
-                                .foregroundColor(.secondary)
-                            Text(remedy.hasRecurrence ? "Repeating" : "No repetition")
-                        }
-                        
-                        if remedy.hasRecurrence {
-                            HStack {
-                                Text("Rule:")
-                                    .foregroundColor(.secondary)
-                                Text(remedy.recurrenceRule ?? "")
-                            }
-                            
-                            if remedy.recurrenceRuleEnum == .multipleTimesPerDay, 
-                               let frequency = remedy.recurrenceFrequency, 
-                               let interval = remedy.recurrenceInterval {
-                                HStack {
-                                    Text("Frequency:")
-                                        .foregroundColor(.secondary)
-                                    Text("\(frequency) times per day (every \(interval) hours)")
-                                }
-                            }
-                            
-                            if let endDate = remedy.recurrenceEndDate {
-                                HStack {
-                                    Text("Ends on:")
-                                        .foregroundColor(.secondary)
-                                    Text(formatDate(endDate))
-                                }
-                            }
-                        }
-                    }
-                    .padding(.vertical, 8)
-                    
-                    Divider()
-                    
-                    // Notes
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Notes")
-                            .font(.headline)
-                        
-                        if let notes = remedy.notes, !notes.isEmpty {
-                            Text(notes)
-                                .padding()
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Color(.systemGray6))
-                                .cornerRadius(8)
-                        } else {
-                            Text("No notes")
-                                .foregroundColor(.secondary)
-                                .padding()
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Color(.systemGray6))
-                                .cornerRadius(8)
-                        }
-                    }
-                    .padding(.vertical, 8)
-                }
-                .padding()
-            }
-        )
-    }
-    
     // MARK: - Helper Methods
     
     private func updateSuggestions(query: String) {
@@ -705,26 +572,6 @@ struct RemedyFormView: View {
 
 #Preview("Create") {
     RemedyFormView()
-}
-
-#Preview("View") {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Remedy.self, configurations: config)
-    
-    let sampleRemedy = Remedy(
-        name: "Arnica",
-        potency: "30C",
-        takenTimestamp: Date(),
-        prescribedTimestamp: Date(),
-        waitAndWatchPeriod: 7 * 24 * 60 * 60,
-        effectivenessDueDate: Date().addingTimeInterval(7 * 24 * 60 * 60),
-        notes: "For muscle soreness after workout"
-    )
-    
-    return NavigationStack {
-        RemedyFormView(remedy: sampleRemedy)
-    }
-    .modelContainer(container)
 }
 
 #Preview("Edit") {

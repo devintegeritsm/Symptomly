@@ -26,13 +26,14 @@ struct RemedyRow: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
+            
+            
             HStack {
+                Image(systemName: "flask").foregroundColor(.secondary)
+                
                 Text(remedy.name)
                     .font(.headline)
                     .fontWeight(.bold)
-                
-                Text("•")
-                
                 Text(remedy.displayPotency)
                     .font(.subheadline)
                     .foregroundColor(.teal)
@@ -40,34 +41,37 @@ struct RemedyRow: View {
                     .padding(.vertical, 2)
                     .background(Color.teal.opacity(0.2))
                     .cornerRadius(8)
+                
+                Spacer()
+                Text(formatDate(remedy.takenTimestamp))
+                    .font(.caption)
             }
             .opacity(isPlaceholder ? 0.6 : 1.0)
             
             HStack {
-                Text("Taken")
+                Text("Taken on")
+                    .font(.caption2)
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Color.gray.opacity(0.2))
+                    .cornerRadius(8)
+                Text(Utils.formatDateTime(remedy.takenTimestamp))
                     .font(.caption)
                     .foregroundColor(.secondary)
-                
-                Text(formatDate(remedy.takenTimestamp))
-                    .font(.caption)
-                
-                Text("at")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Text(formatTime(remedy.takenTimestamp))
-                    .font(.caption)
-                
-                if remedy.hasRecurrence {
+            }
+            
+            if remedy.hasRecurrence {
+                HStack {
                     Image(systemName: "repeat")
                         .font(.caption)
                 }
+                .foregroundColor(.secondary)
+                .opacity(isPlaceholder ? 0.4 : 0.8)
             }
-            .foregroundColor(.secondary)
-            .opacity(isPlaceholder ? 0.4 : 0.8)
             
-            HStack {
-                if let notes = remedy.notes, !notes.isEmpty {
+            if let notes = remedy.notes, !notes.isEmpty {
+                HStack {
                     Text(notes)
                         .font(.caption2)
                         .foregroundColor(.secondary)
@@ -75,16 +79,16 @@ struct RemedyRow: View {
                         .truncationMode(.tail)
                         .opacity(isPlaceholder ? 0.4 : 0.8)
                 }
+                .foregroundColor(.secondary)
+                .opacity(isPlaceholder ? 0.4 : 0.8)
             }
-            .foregroundColor(.secondary)
-            .opacity(isPlaceholder ? 0.4 : 0.8)
             
             HStack {
                 if isPlaceholder {
                     Text("Future")
                         .font(.caption2)
                         .foregroundColor(.gray)
-//                        .padding(.horizontal, 8)
+                        .padding(.horizontal, 8)
                         .padding(.vertical, 2)
                         .background(Color.gray.opacity(0.2))
                         .cornerRadius(8)
@@ -117,7 +121,7 @@ struct RemedyRow: View {
                     }
                 }
                 
-                Text("Until \(formatDate(remedy.effectivenessDueDate))")
+                Text("Until \(Utils.formatDateTime(remedy.effectivenessDueDate))")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

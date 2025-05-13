@@ -36,6 +36,7 @@ struct SymptomRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
+                Image(systemName: "thermometer.medium").foregroundColor(.secondary)
                 Text(symptom.name)
                     .font(.headline)
                 if isRecentlyResolved && !symptom.isResolved {
