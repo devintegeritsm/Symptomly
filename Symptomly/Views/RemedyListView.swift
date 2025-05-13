@@ -19,18 +19,28 @@ struct RemedyListView: View {
     
     var body: some View {
         NavigationStack {
-            VStack {
-                RemedyListContent(allRemedies: allRemedies, remedyToDelete: $remedyToDelete, showDeleteConfirmation: $showDeleteConfirmation)
-            }
-            .navigationTitle("Remedies")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingRemedyLog = true
-                    } label: {
-                        Image(systemName: "plus")
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Remedies")
+                        .font(.title)
+                        .fontWeight(.bold)
+                    
+                    Spacer()
+                    
+                    HStack(spacing: 16) {
+                        Button {
+                            showingRemedyLog = true
+                        } label: {
+                            Image(systemName: "plus")
+                        }
                     }
                 }
+                .padding(.horizontal)
+                .padding(.top)
+                .padding(.bottom, 8)
+                .background(Color(.systemBackground))
+                
+                RemedyListContent(allRemedies: allRemedies, remedyToDelete: $remedyToDelete, showDeleteConfirmation: $showDeleteConfirmation)
             }
             .sheet(isPresented: $showingRemedyLog) {
                 RemedyFormView()

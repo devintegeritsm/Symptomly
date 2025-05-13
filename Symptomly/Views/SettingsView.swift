@@ -6,52 +6,63 @@ struct SettingsView: View {
     
     var body: some View {
         NavigationStack {
-            Form {
-                Section(header: Text("Daily Reminder")) {
-                    Toggle("Enable Reminder", isOn: $viewModel.reminderEnabled)
-                        .disabled(!viewModel.notificationsAuthorized)
-                    
-                    if viewModel.reminderEnabled {
-                        HStack {
-                            Text("Reminder Time")
-                            Spacer()
-                            Button(action: {
-                                showTimePicker()
-                            }) {
-                                Text(formatTime(viewModel.reminderTime))
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 6)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .fill(Color(.systemGray6))
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(!viewModel.notificationsAuthorized)
-                        }
-                    }
-                    
-                    if !viewModel.notificationsAuthorized {
-                        HStack {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.yellow)
-                            Text("Notifications are disabled. Please enable them in Settings.")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.vertical, 4)
-                        
-                        Button("Open Settings") {
-                            viewModel.openSystemSettings()
-                        }
-                    }
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Settings")
+                        .font(.title)
+                        .fontWeight(.bold)
+                    Spacer()
                 }
-                
-                Section(header: Text("About")) {
-                    LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")
+                .padding(.horizontal)
+                .padding(.top)
+                .padding(.bottom, 8)
+                .background(Color(.systemBackground))
+                Form {
+                    Section(header: Text("Daily Reminder")) {
+                        Toggle("Enable Reminder", isOn: $viewModel.reminderEnabled)
+                            .disabled(!viewModel.notificationsAuthorized)
+                        
+                        if viewModel.reminderEnabled {
+                            HStack {
+                                Text("Reminder Time")
+                                Spacer()
+                                Button(action: {
+                                    showTimePicker()
+                                }) {
+                                    Text(formatTime(viewModel.reminderTime))
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .fill(Color(.systemGray6))
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(!viewModel.notificationsAuthorized)
+                            }
+                        }
+                        
+                        if !viewModel.notificationsAuthorized {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(.yellow)
+                                Text("Notifications are disabled. Please enable them in Settings.")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 4)
+                            
+                            Button("Open Settings") {
+                                viewModel.openSystemSettings()
+                            }
+                        }
+                    }
+                    
+                    Section(header: Text("About")) {
+                        LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")
+                    }
                 }
             }
-            .navigationTitle("Settings")
         }
     }
     

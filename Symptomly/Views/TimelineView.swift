@@ -294,34 +294,6 @@ struct TimelineView: View {
         resetPagination()
     }
     
-    private func navigateToPreviousPeriod() {
-        guard let start = startDate else { return }
-        
-        let calendar = Calendar.current
-        let newStart = calendar.date(byAdding: .day, value: -7, to: start)!
-        let newEnd = calendar.date(byAdding: .day, value: -7, to: endDate!)!
-        
-        startDate = newStart
-        endDate = newEnd
-        
-        // Reset pagination when date range changes
-        resetPagination()
-    }
-    
-    private func navigateToNextPeriod() {
-        guard let end = endDate, !isCurrentPeriod else { return }
-        
-        let calendar = Calendar.current
-        let newStart = calendar.date(byAdding: .day, value: 7, to: startDate!)!
-        let newEnd = calendar.date(byAdding: .day, value: 7, to: end)!
-        
-        startDate = newStart
-        endDate = newEnd
-        
-        // Reset pagination when date range changes
-        resetPagination()
-    }
-    
     // Export Timeline Functions
     private func exportTimeline(from startDate: Date, to endDate: Date, action: ExportAction) {
         self.exportStartDate = startDate
@@ -528,7 +500,7 @@ struct TimelineItemRow: View {
             // Right column with content
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Image(systemName: item.type == .symptom ? "list.clipboard" : "flask")
+                    Image(systemName: item.type == .symptom ? "thermometer.medium" : "flask")
                         .foregroundColor(item.color)
                     
                     Text(item.type == .symptom ? "Symptom" : "Remedy")
@@ -545,10 +517,24 @@ struct TimelineItemRow: View {
                 Text(item.name)
                     .font(.headline)
                 
-                Text(item.details)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .lineLimit(2)
+                if item.type == .symptom {
+                    // Show severity indicator for symptoms using dots
+                    let severity = getSeverityFromDetails(item.details)
+                    SeverityIndicator(severity: severity)
+                    
+                    if let notes = extractNotes(from: item.details), !notes.isEmpty {
+                        Text(notes)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .lineLimit(2)
+                    }
+                } else {
+                    // For remedies, keep showing the original details
+                    Text(item.details)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -565,6 +551,46 @@ struct TimelineItemRow: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d"
         return formatter.string(from: date)
+    }
+    
+    // Function to extract severity from the details string
+    private func getSeverityFromDetails(_ details: String) -> Severity {
+        if details.contains("Resolved:") {
+            return .resolved
+        }
+        
+        // Expected format: "Severity: X - Notes"
+        let components = details.split(separator: ":")
+        if components.count >= 2, let severityString = components[safe: 1]?.split(separator: "-").first?.trimmingCharacters(in: .whitespacesAndNewlines) {
+            switch severityString {
+            case "Mild": return .mild
+            case "Moderate": return .moderate
+            case "Severe": return .severe
+            case "Extreme": return .extreme
+            default: return .mild
+            }
+        }
+        
+        return .mild // Default to mild if parsing fails
+    }
+    
+    // Function to extract notes from the details
+    private func extractNotes(from details: String) -> String? {
+        // Expected format for symptoms: "Severity: X - Notes" or "Resolved: <date> - Notes"
+        if details.contains(" - ") {
+            let components = details.split(separator: " - ", maxSplits: 1)
+            if components.count > 1 {
+                return String(components[1])
+            }
+        }
+        return nil
+    }
+}
+
+// Extension to safely access array elements
+extension Array {
+    subscript(safe index: Index) -> Element? {
+        return indices.contains(index) ? self[index] : nil
     }
 }
 

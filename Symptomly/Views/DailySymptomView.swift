@@ -21,8 +21,27 @@ struct DailySymptomView: View {
     
     var body: some View {
         NavigationStack {
-            VStack {
-                // Date navigation
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Symptoms")
+                        .font(.title)
+                        .fontWeight(.bold)
+                    
+                    Spacer()
+                    
+                    HStack(spacing: 16) {
+                        Button {
+                            showingSymptomLog = true
+                        } label: {
+                            Image(systemName: "plus")
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.top)
+                .padding(.bottom, 8)
+                .background(Color(.systemBackground))
+                
                 HStack {
                     Button(action: {
                         selectedDate = Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) ?? selectedDate
@@ -71,16 +90,7 @@ struct DailySymptomView: View {
                 
                 // Content
                 SymptomListView(selectedDate: $selectedDate)
-            }
-            .navigationTitle("Symptoms")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingSymptomLog = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                }
+            
             }
             .sheet(isPresented: $showingSymptomLog) {
                 SymptomFormView(selectedDate: selectedDate)
