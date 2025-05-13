@@ -15,14 +15,13 @@ final class Symptom {
     var severity: Int
     var timestamp: Date
     var notes: String?
-    var resolutionDate: Date?
     
-    init(name: String, severity: Int, timestamp: Date = Date(), notes: String? = nil, resolutionDate: Date? = nil) {
+    init(name: String, severity: Int, timestamp: Date = Date(), notes: String? = nil) {
         self.name = name
         self.severity = severity
         self.timestamp = timestamp
         self.notes = notes
-        self.resolutionDate = resolutionDate
+
     }
     
     var severityEnum: Severity {

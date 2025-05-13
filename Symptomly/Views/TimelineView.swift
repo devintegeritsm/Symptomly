@@ -73,7 +73,7 @@ struct TimelineView: View {
                 type: .symptom,
                 name: symptom.name,
                 details: (symptom.isResolved
-                          ? "Resolved: \(Utils.formatDateTime(symptom.resolutionDate ?? symptom.timestamp))"
+                          ? "Resolved: \(Utils.formatDateTime(symptom.timestamp))"
                           : "Severity: \(symptom.severityEnum.rawValue)")
                     + (symptom.notes != nil ? " - \(symptom.notes!)" : ""),
                 color: symptom.severityEnum.color

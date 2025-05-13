@@ -46,16 +46,9 @@ struct SymptomListView: View {
                                     temporaryNotes = symptom.notes ?? ""
                                     showResolutionDatePicker = true
                                 } label: {
-                                    Label("Mark Resolved", systemImage: "checkmark.circle")
+                                    Label("Set Resolved", systemImage: "checkmark.circle")
                                 }
                                 .tint(.green)
-                            } else {
-                                Button {
-                                    toggleResolvedStatus(for: symptom)
-                                } label: {
-                                    Label("Mark Active", systemImage: "exclamationmark.circle")
-                                }
-                                .tint(.orange)
                             }
                         }
                         .swipeActions(edge: .trailing) {
@@ -82,8 +75,8 @@ struct SymptomListView: View {
                 notes: $temporaryNotes,
                 onSave: {
                     if let symptom = symptomToResolve {
-                        markAsResolved(
-                            symptom: symptom, 
+                        createResolved(
+                            symptom: symptom,
                             resolutionDate: temporaryResolutionDate, 
                             notes: temporaryNotes.isEmpty ? nil : temporaryNotes
                         )
@@ -116,24 +109,14 @@ struct SymptomListView: View {
         }
     }
     
-    private func markAsResolved(symptom: Symptom, resolutionDate: Date, notes: String?) {
-        symptom.severity = Severity.resolved.rawValue
-        symptom.resolutionDate = resolutionDate
-        symptom.notes = notes
-    }
-    
-    private func toggleResolvedStatus(for symptom: Symptom) {
-        if symptom.isResolved {
-            // Mark as active with mild severity
-            symptom.severity = Severity.mild.rawValue
-            symptom.resolutionDate = nil
-        } else {
-            // This case should not be reached directly as we now use the sheet
-            symptomToResolve = symptom
-            temporaryResolutionDate = Date()
-            temporaryNotes = symptom.notes ?? ""
-            showResolutionDatePicker = true
-        }
+    private func createResolved(symptom: Symptom, resolutionDate: Date, notes: String?) {
+        let newSymptom = Symptom(
+            name: symptom.name,
+            severity: Severity.resolved.rawValue,
+            timestamp: resolutionDate,
+            notes: notes
+        )
+        modelContext.insert(newSymptom)
     }
     
     private func deleteSymptom(_ symptom: Symptom) {

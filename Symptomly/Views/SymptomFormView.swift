@@ -33,8 +33,6 @@ struct SymptomFormView: View {
     @State private var notes: String = ""
     @State private var timestamp: Date
     @State private var isResolved: Bool = false
-    @State private var resolutionDate: Date = Date()
-    @State private var showResolutionDatePicker: Bool = false
     @State private var showSuggestions: Bool = false
     @State private var skipSuggestions: Bool = false
     @State private var filteredSuggestions: [String] = []
@@ -80,7 +78,6 @@ struct SymptomFormView: View {
         _notes = State(initialValue: symptom.notes ?? "")
         _timestamp = State(initialValue: symptom.timestamp)
         _isResolved = State(initialValue: symptom.severityEnum == .resolved)
-        _resolutionDate = State(initialValue: symptom.resolutionDate ?? Date())
     }
     
     var navigationTitle: String {
@@ -172,6 +169,7 @@ struct SymptomFormView: View {
                     }
                 }
                 
+                /*
                 Section {
                     Toggle("Mark as resolved", isOn: $isResolved)
                         .onChange(of: isResolved) { oldValue, newValue in
@@ -204,8 +202,17 @@ struct SymptomFormView: View {
                         }
                     }
                 }
+                 */
                 
-                if !isResolved {
+                if isResolved {
+                    Section() {
+                        HStack {
+                            SeverityIndicator(severity: Severity(rawValue: severity) ?? .mild)
+                            Spacer()
+                        }
+                    }
+                }
+                else {
                     Section("Severity") {
                         Picker("Severity", selection: $severity) {
                             ForEach(Array(Severity.allCases.filter { $0 != .resolved }), id: \.rawValue) { severityLevel in
@@ -214,27 +221,23 @@ struct SymptomFormView: View {
                         }
                         .pickerStyle(.segmented)
                         
-                        // Only show severity indicator in edit mode
-                        if case .edit = mode {
-                            HStack {
-                                SeverityIndicator(severity: Severity(rawValue: severity) ?? .mild)
-                                Spacer()
-                            }
-                        }
-                    }
-                    
-                    Section("When did it occur?") {
-                        VStack(alignment: .leading) {
-                            HStack {
-                                if case .edit = mode {
-                                    Image(systemName: "calendar").foregroundColor(.secondary)
-                                }
-                                Text("Time:")
-                            }
-                            CustomDatePicker(selection: $timestamp, includeTime: true)
+                        HStack {
+                            SeverityIndicator(severity: Severity(rawValue: severity) ?? .mild)
+                            Spacer()
                         }
                     }
                 }
+                    
+                Section("When did it occur?") {
+                    VStack(alignment: .leading) {
+                        HStack {
+                            Image(systemName: "calendar").foregroundColor(.secondary)
+                            Text("Time:")
+                        }
+                        CustomDatePicker(selection: $timestamp, includeTime: true)
+                    }
+                }
+                
                 
                 Section("Notes (Optional)") {
                     TextEditor(text: $notes)
@@ -357,13 +360,11 @@ struct SymptomFormView: View {
     
     private func saveNewSymptom() {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let resolutionDateValue = isResolved ? resolutionDate : nil
         let newSymptom = Symptom(
             name: trimmedName,
             severity: severity,
             timestamp: timestamp,
             notes: notes.isEmpty ? nil : notes,
-            resolutionDate: resolutionDateValue
         )
         
         modelContext.insert(newSymptom)
@@ -378,13 +379,6 @@ struct SymptomFormView: View {
         symptom.severity = severity
         symptom.timestamp = timestamp
         symptom.notes = notes.isEmpty ? nil : notes
-        
-        // Update resolution date only if symptom is resolved
-        if isResolved {
-            symptom.resolutionDate = resolutionDate
-        } else {
-            symptom.resolutionDate = nil
-        }
         
         dismiss()
     }

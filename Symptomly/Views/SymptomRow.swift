@@ -31,19 +31,13 @@ struct SymptomRow: View {
                     .foregroundColor(.secondary)
             }
             
-            HStack {
-                SeverityIndicator(severity: symptom.severityEnum)
-                
-                if symptom.isResolved, let resolutionDate = symptom.resolutionDate {
-                    Text("\(resolutionDate.formatted(.dateTime.month().day().hour().minute()))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                } else if let notes = symptom.notes, !notes.isEmpty {
-                    Text(notes)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                }
+            SeverityIndicator(severity: symptom.severityEnum)
+            
+            if let notes = symptom.notes, !notes.isEmpty {
+                Text(notes)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
             }
             
             if !activeRemedies.isEmpty {
