@@ -325,7 +325,7 @@ struct TimelineView: View {
                 }
             }
             .sheet(isPresented: $showingExportOptions) {
-                ExportOptionsView(
+                DateRangePickerView(
                     startDate: $exportStartDate,
                     endDate: $exportEndDate,
                     onExport: { startDate, endDate in
@@ -333,7 +333,9 @@ struct TimelineView: View {
                         showingExportOptions = false
                     }
                 )
-                .presentationDetents([.height(400)])
+                .frame(width: 340, height: 700)
+                .padding()
+                .presentationDetents([.height(720)])
                 .presentationDragIndicator(.visible)
             }
             .onChange(of: exportedFileURL) { _, newURL in

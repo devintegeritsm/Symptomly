@@ -5,6 +5,7 @@ struct DateRangePickerView: View {
     @Binding var startDate: Date
     @Binding var endDate: Date
     @Binding var isActive: Bool
+    @Environment(\.dismiss) private var dismiss
     
     @State private var selectedPickerTab: Int = 0
     @State private var selectedStartDate: Date
@@ -13,6 +14,7 @@ struct DateRangePickerView: View {
     
     private let calendar = Calendar.current
     var onDateRangeSelected: (() -> Void)?
+    var onExport: ((Date, Date) -> Void)?
     
     enum DateRangePreset: String, CaseIterable, Identifiable {
         case today = "Today"
@@ -33,12 +35,24 @@ struct DateRangePickerView: View {
         self._selectedStartDate = State(initialValue: startDate.wrappedValue)
         self._selectedEndDate = State(initialValue: endDate.wrappedValue)
         self.onDateRangeSelected = onDateRangeSelected
+        self.onExport = nil
+    }
+    
+    // Initialize for export functionality
+    init(startDate: Binding<Date>, endDate: Binding<Date>, onExport: @escaping (Date, Date) -> Void) {
+        self._startDate = startDate
+        self._endDate = endDate
+        self._isActive = .constant(true) // Not used in export mode
+        self._selectedStartDate = State(initialValue: startDate.wrappedValue)
+        self._selectedEndDate = State(initialValue: endDate.wrappedValue)
+        self.onExport = onExport
+        self.onDateRangeSelected = nil
     }
     
     var body: some View {
         NavigationView {
             VStack(spacing: 15) {
-                Text("Select Date Range")
+                Text(onExport != nil ? "Export Timeline" : "Select Date Range")
                     .font(.title3)
                     .fontWeight(.bold)  
                     .padding(.top)
@@ -109,16 +123,28 @@ struct DateRangePickerView: View {
                 }
                 .padding(.horizontal)
                 
-                // Apply button
+                // Action button (Apply Filter or Export)
                 Button(action: {
-                    applyDateRange()
+                    if onExport != nil {
+                        onExport?(selectedStartDate, selectedEndDate)
+                    } else {
+                        applyDateRange()
+                    }
                 }) {
-                    Text("Apply Filter")
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(isValidDateRange() ? Color.accentColor : Color.gray)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
+                    HStack {
+                        if onExport != nil {
+                            Image(systemName: "square.and.arrow.up")
+                            Text("Share Timeline")
+                                .fontWeight(.medium)
+                        } else {
+                            Text("Apply Filter")
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(isValidDateRange() ? (onExport != nil ? Color.blue : Color.accentColor) : Color.gray)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
                 }
                 .disabled(!isValidDateRange())
                 .padding(.horizontal)
@@ -126,14 +152,16 @@ struct DateRangePickerView: View {
             }
             .onChange(of: selectedStartDate) { validateEndDate() }
             .onChange(of: selectedEndDate) { validateStartDate() }
-            .toolbar  {
-                ToolbarItem(placement: .topBarTrailing) {
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
-                        onDateRangeSelected?()
+                        dismiss()
                     }
                 }
             }
         }
+        .presentationDetents(onExport != nil ? [.height(400)] : [.height(720)])
+        .presentationDragIndicator(.visible)
     }
     
     private func formatDate(_ date: Date) -> String {
@@ -151,19 +179,22 @@ struct DateRangePickerView: View {
     }
     
     private func isValidDateRange() -> Bool {
-//        return !calendar.isDate(selectedEndDate, be selectedStartDate)
-        return selectedEndDate > selectedStartDate
+        return selectedEndDate >= selectedStartDate
     }
     
     private func validateEndDate() {
         if calendar.isDate(selectedEndDate, inSameDayAs: selectedStartDate) {
             selectedEndDate = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: selectedStartDate) ?? selectedStartDate
+        } else if selectedEndDate < selectedStartDate {
+            selectedEndDate = selectedStartDate
         }
     }
     
     private func validateStartDate() {
         if calendar.isDate(selectedEndDate, inSameDayAs: selectedStartDate) {
-            selectedStartDate = calendar.date(bySettingHour: 0, minute: 0, second: 1, of: selectedEndDate) ?? selectedEndDate
+            selectedStartDate = calendar.date(bySettingHour: 0, minute: 0, second: 0, of: selectedEndDate) ?? selectedEndDate
+        } else if selectedStartDate > selectedEndDate {
+            selectedStartDate = selectedEndDate
         }
     }
     
