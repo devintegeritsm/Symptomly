@@ -135,7 +135,7 @@ struct CalendarPickerView: View {
             .id(UUID())
         }
         .padding(.vertical, 12)
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 12)
     }
     
     private func daysInMonth() -> [Date?] {
@@ -267,10 +267,7 @@ struct MonthPickerView: View {
                                     .opacity(isSelectedMonth(month) ? 0.3 : 0)
                             )
                             .foregroundStyle(isSelectedMonth(month) ? .primary : .secondary)
-                            
-
                     }
-                    .id(UUID())
                 }
             }
             .padding()

@@ -104,10 +104,24 @@ struct TimelineView: View {
                                     resetAndReloadData()
                                 }
                             )
-                            .frame(width: 320, height: 700)
-                            .padding()
-                            .presentationDetents([.height(720)])
-                            .presentationDragIndicator(.visible)
+//                            .frame(width: 320, height: 610)
+//                            .padding()
+//                            .presentationDetents([.height(630)])
+//                            .presentationDragIndicator(.visible)
+                        }
+                        .sheet(isPresented: $showingExportOptions) {
+                            DateRangePickerView(
+                                startDate: $exportStartDate,
+                                endDate: $exportEndDate,
+                                onExport: { startDate, endDate in
+                                    exportTimeline(from: startDate, to: endDate)
+                                    showingExportOptions = false
+                                }
+                            )
+            //                .frame(width: 340, height: 700)
+            //                .padding()
+            //                .presentationDetents([.height(720)])
+            //                .presentationDragIndicator(.visible)
                         }
                     }
                 }
@@ -274,20 +288,7 @@ struct TimelineView: View {
                     resetAndReloadData()
                 }
             }
-            .sheet(isPresented: $showingExportOptions) {
-                DateRangePickerView(
-                    startDate: $exportStartDate,
-                    endDate: $exportEndDate,
-                    onExport: { startDate, endDate in
-                        exportTimeline(from: startDate, to: endDate)
-                        showingExportOptions = false
-                    }
-                )
-                .frame(width: 340, height: 700)
-                .padding()
-                .presentationDetents([.height(720)])
-                .presentationDragIndicator(.visible)
-            }
+            //
             .onChange(of: exportedFileURL) { _, newURL in
                 // When URL changes and is not nil, update the sheet presentation
                 if newURL != nil && !showingShareSheet {

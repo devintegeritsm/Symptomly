@@ -51,14 +51,9 @@ struct DateRangePickerView: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 7) {
-                Text(onExport != nil ? "Export Timeline" : "Select Date Range")
-                    .font(.title3)
-                    .fontWeight(.bold)  
-                    .padding(.top)
-                
+            VStack(spacing: 8) {
                 // Presets button
-                Button(action: {
+                  Button(action: {
                     showingPresetOptions = true
                 }) {
                     HStack {
@@ -138,11 +133,12 @@ struct DateRangePickerView: View {
                                 .fontWeight(.medium)
                         } else {
                             Text("Apply Filter")
+                                .fontWeight(.medium)
                         }
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(isValidDateRange() ? (onExport != nil ? Color.blue : Color.accentColor) : Color.gray)
+                    .background(isValidDateRange() ? Color.accentColor : Color.gray)
                     .foregroundColor(.white)
                     .cornerRadius(10)
                 }
@@ -150,18 +146,27 @@ struct DateRangePickerView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 10)
             }
+            .frame(maxWidth: 340)
             .onChange(of: selectedStartDate) { validateEndDate() }
             .onChange(of: selectedEndDate) { validateStartDate() }
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(onExport != nil ? "Export Timeline" : "Select Date Range")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                }
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button(action: {
                         dismiss()
+                    }) {
+                        Text("Cancel")
                     }
                 }
             }
         }
-        .presentationDetents(onExport != nil ? [.height(400)] : [.height(720)])
-        .presentationDragIndicator(.visible)
+        .presentationDetents([.height(720)])
+        .interactiveDismissDisabled()
     }
     
     private func formatDate(_ date: Date) -> String {
