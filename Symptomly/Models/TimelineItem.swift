@@ -1,3 +1,14 @@
+//
+//  TimelineItem.swift
+//  Symptomly
+//
+//  Created by Bastien Villefort on 5/18/25.
+//
+
+import Foundation
+import SwiftUICore
+
+
 struct TimelineItem: Identifiable {
     let id = UUID()
     let timestamp: Date

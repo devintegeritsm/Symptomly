@@ -2,20 +2,6 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 
-struct TimelineItem: Identifiable {
-    let id = UUID()
-    let timestamp: Date
-    let type: ItemType
-    let name: String
-    let details: String
-    let color: Color
-    
-    enum ItemType {
-        case symptom
-        case remedy
-    }
-}
-
 struct TimelineView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var selectedDate = Date()
@@ -32,20 +18,12 @@ struct TimelineView: View {
     @State private var exportEndDate = Date()
     @State private var exportedFileURL: URL?
     @State private var showingShareSheet = false
-    
-    // Pagination
-    @State private var currentPage = 0
-    @State private var itemsPerPage = 20
-    @State private var isLoadingMore = false
-    @State private var hasMoreContent = true
-    
-    // Date range for query
-    @State private var startDate: Date?
-    @State private var endDate: Date?
-    
+        
     @Query private var symptoms: [Symptom]
     @Query private var remedies: [Remedy]
     
+    @State private var timelineItems: [TimelineItem] = []
+
     // Search filter enum
     enum SearchFilter: String, CaseIterable {
         case all = "All"
@@ -59,28 +37,11 @@ struct TimelineView: View {
     }
     
     init() {
-        // Default to showing current date range
-        let calendar = Calendar.current
-        let today = Date()
-        let startOfWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: today))!
-        let endOfWeek = calendar.date(byAdding: .day, value: 7, to: startOfWeek)!
-        
-        self._startDate = State(initialValue: startOfWeek)
-        self._endDate = State(initialValue: endOfWeek)
-        
-        // Create query predicates for date filtering
-        let symptomPredicate = #Predicate<Symptom> { 
-            $0.timestamp >= startOfWeek && $0.timestamp <= endOfWeek
-        }
-        let remedyPredicate = #Predicate<Remedy> {
-            $0.takenTimestamp >= startOfWeek && $0.takenTimestamp <= endOfWeek
-        }
-        
-        self._symptoms = Query(filter: symptomPredicate, sort: \Symptom.timestamp, order: .reverse)
-        self._remedies = Query(filter: remedyPredicate, sort: \Remedy.takenTimestamp, order: .reverse)
+        self._symptoms = Query(sort: \Symptom.timestamp, order: .reverse)
+        self._remedies = Query(sort: \Remedy.takenTimestamp, order: .reverse)
     }
     
-    var timelineItems: [TimelineItem] {
+    private func reloadTimelineItems() {
         var items: [TimelineItem] = []
         
         // Add symptoms to timeline
@@ -108,10 +69,10 @@ struct TimelineView: View {
             ))
         }
         
-        // Sort all items by timestamp
-        return items.sorted { $0.timestamp > $1.timestamp }
+        self.timelineItems.removeAll()
+        self.timelineItems.append(contentsOf: items.sorted { $0.timestamp > $1.timestamp })
     }
-    
+        
     var filteredItems: [TimelineItem] {
         if searchText.isEmpty && searchFilter == .all {
             return timelineItems
@@ -156,17 +117,7 @@ struct TimelineView: View {
             return matchesFilter && (nameMatch || detailsMatch)
         }
     }
-    
-    var paginatedItems: [TimelineItem] {
-        if filteredItems.isEmpty {
-            return []
-        }
         
-        // With continuous scrolling, we'll show all loaded items
-        let endIndex = min((currentPage + 1) * itemsPerPage, filteredItems.count)
-        return Array(filteredItems[0..<endIndex])
-    }
-    
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -267,7 +218,7 @@ struct TimelineView: View {
                 }
                 
                 // Timeline content
-                if paginatedItems.isEmpty {
+                if filteredItems.isEmpty {
                     VStack(spacing: 20) {
                         Image(systemName: "calendar.badge.clock")
                             .font(.system(size: 60))
@@ -297,32 +248,13 @@ struct TimelineView: View {
                 } else {
                     ScrollView {
                         LazyVStack {
-                            ForEach(paginatedItems) { item in
+                            ForEach(filteredItems) { item in
                                 TimelineItemRow(item: item)
                                     .padding(.horizontal)
-                                    .onAppear {
-                                        // If this is one of the last items, load more
-                                        if item.id == paginatedItems.last?.id && !isLoadingMore && hasMoreContent {
-                                            loadMoreContent()
-                                        }
-                                    }
-                            }
-                            
-                            if isLoadingMore {
-                                ProgressView()
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .padding()
-                            }
-                            
-                            if !hasMoreContent && !paginatedItems.isEmpty {
-                                Text("End of timeline")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .padding()
                             }
                         }
                         .padding(.vertical)
+                        .id(UUID())
                     }
                     .background(Color(.systemGroupedBackground))
                 }
@@ -337,8 +269,8 @@ struct TimelineView: View {
                 ExportOptionsView(
                     startDate: $exportStartDate,
                     endDate: $exportEndDate,
-                    onExport: { startDate, endDate, action in
-                        exportTimeline(from: startDate, to: endDate, action: action)
+                    onExport: { startDate, endDate in
+                        exportTimeline(from: startDate, to: endDate)
                         showingExportOptions = false
                     }
                 )
@@ -359,72 +291,22 @@ struct TimelineView: View {
                     ShareSheet(items: [url])
                 }
             }
-            .onChange(of: searchText) { _, _ in
-                resetPagination()
-            }
-            .onChange(of: searchFilter) { _, _ in
-                resetPagination()
+            .onAppear() {
+                reloadTimelineItems()
             }
         }
     }
-    
-    var formattedDateRange: String {
-        guard let start = startDate, let end = endDate else {
-            return "All Events"
-        }
-        
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
-        
-        return "\(formatter.string(from: start)) - \(formatter.string(from: end))"
-    }
-    
-    var isCurrentPeriod: Bool {
-        guard let end = endDate else { return false }
-        let today = Date()
-        return Calendar.current.isDate(end, inSameDayAs: today) || end > today
-    }
-    
-    private func loadMoreContent() {
-        guard !isLoadingMore && hasMoreContent else { return }
-        
-        isLoadingMore = true
-        
-        // Simulate a small delay for better UX when loading
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            // Check if we have more content to load
-            let nextPageStart = (currentPage + 1) * itemsPerPage
-            
-            if nextPageStart < filteredItems.count {
-                currentPage += 1
-                hasMoreContent = (currentPage + 1) * itemsPerPage < filteredItems.count
-            } else {
-                hasMoreContent = false
-            }
-            
-            isLoadingMore = false
-        }
-    }
-    
-    private func resetPagination() {
-        currentPage = 0
-        isLoadingMore = false
-        hasMoreContent = true
-    }
-    
+
     private func updateDateRange(from date: Date) {
-        let calendar = Calendar.current
+//        let calendar = Calendar.current
+//        
+//        // Set up a weekly range (centered on selected date)
+//        let startOfWeek = calendar.date(byAdding: .day, value: -3, to: date)!
+//        let endOfWeek = calendar.date(byAdding: .day, value: 3, to: date)!
+//        
+//        startDate = startOfWeek
+//        endDate = endOfWeek
         
-        // Set up a weekly range (centered on selected date)
-        let startOfWeek = calendar.date(byAdding: .day, value: -3, to: date)!
-        let endOfWeek = calendar.date(byAdding: .day, value: 3, to: date)!
-        
-        startDate = startOfWeek
-        endDate = endOfWeek
-        
-        // Reset pagination when date range changes
-        resetPagination()
     }
     
     private func filterColor(for filter: SearchFilter) -> Color {
@@ -445,7 +327,7 @@ struct TimelineView: View {
     }
     
     // Export Timeline Functions
-    private func exportTimeline(from startDate: Date, to endDate: Date, action: ExportAction) {
+    private func exportTimeline(from startDate: Date, to endDate: Date) {
         self.exportStartDate = startDate
         self.exportEndDate = endDate
         
@@ -618,201 +500,11 @@ struct TimelineView: View {
     }
 }
 
-struct TimelineItemRow: View {
-    let item: TimelineItem
-    
-    var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            // Left column for time
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(formatDate(item.timestamp))
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                
-                Text(formatTime(item.timestamp))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .frame(width: 75)
-            
-            // Center vertical line with dot
-            VStack(spacing: 0) {
-                Circle()
-                    .fill(item.color)
-                    .frame(width: 10, height: 10)
-                
-                Rectangle()
-                    .fill(Color(.systemGray4))
-                    .frame(width: 2)
-                    .frame(maxHeight: .infinity)
-            }
-            
-            // Right column with content
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Image(systemName: item.type == .symptom ? "thermometer.medium" : "flask")
-                        .foregroundColor(item.color)
-                    
-                    Text(item.type == .symptom ? "Symptom" : "Remedy")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(
-                            Capsule()
-                                .fill(Color(.systemGray6))
-                        )
-                }
-                
-                Text(item.name)
-                    .font(.headline)
-                
-                if item.type == .symptom {
-                    // Show severity indicator for symptoms using dots
-                    let severity = getSeverityFromDetails(item.details)
-                    SeverityIndicator(severity: severity)
-                    
-                    if let notes = extractNotes(from: item.details), !notes.isEmpty {
-                        Text(notes)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .lineLimit(2)
-                    }
-                } else {
-                    // For remedies, keep showing the original details
-                    Text(item.details)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(.vertical, 8)
-    }
-    
-    private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm a"
-        return formatter.string(from: date)
-    }
-    
-    private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        return formatter.string(from: date)
-    }
-    
-    // Function to extract severity from the details string
-    private func getSeverityFromDetails(_ details: String) -> Severity {
-        if details.contains("Resolved") {
-            return .resolved
-        }
-        
-        // Expected format: "Severity: X - Notes"
-        let components = details.split(separator: ":")
-        if components.count >= 2, let severityString = components[safe: 1]?.split(separator: "-").first?.trimmingCharacters(in: .whitespacesAndNewlines) {
-            switch severityString {
-            case "Mild": return .mild
-            case "Moderate": return .moderate
-            case "Severe": return .severe
-            case "Extreme": return .extreme
-            default: return .mild
-            }
-        }
-        
-        return .mild // Default to mild if parsing fails
-    }
-    
-    // Function to extract notes from the details
-    private func extractNotes(from details: String) -> String? {
-        // Expected format for symptoms: "Severity: X - Notes" or "Resolved - Notes"
-        if details.contains(" - ") {
-            let components = details.split(separator: " - ", maxSplits: 1)
-            if components.count > 1 {
-                return String(components[1])
-            }
-        }
-        return nil
-    }
-}
 
 // Extension to safely access array elements
 extension Array {
     subscript(safe index: Index) -> Element? {
         return indices.contains(index) ? self[index] : nil
-    }
-}
-
-// Export options view
-enum ExportAction {
-    case share
-}
-
-struct ExportOptionsView: View {
-    @Binding var startDate: Date
-    @Binding var endDate: Date
-    @Environment(\.dismiss) private var dismiss
-    let onExport: (Date, Date, ExportAction) -> Void
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                Text("Export Timeline")
-                    .font(.headline)
-                    .padding(.top)
-                
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Select Date Range:")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    
-                    VStack(spacing: 16) {
-                        DatePicker("From", selection: $startDate, displayedComponents: [.date])
-                            .datePickerStyle(.compact)
-                        
-                        DatePicker("To", selection: $endDate, in: startDate..., displayedComponents: [.date])
-                            .datePickerStyle(.compact)
-                    }
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color(.secondarySystemBackground))
-                    )
-                }
-                .padding(.horizontal)
-                
-                Divider()
-                    .padding(.horizontal)
-                
-                Button(action: {
-                    onExport(startDate, endDate, .share)
-                }) {
-                    HStack {
-                        Image(systemName: "square.and.arrow.up")
-                        Text("Share Timeline")
-                            .fontWeight(.medium)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.blue)
-                    )
-                    .foregroundColor(.white)
-                }
-                .padding(.horizontal)
-                
-                Spacer()
-            }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -870,26 +562,4 @@ class URLActivityItemSource: NSObject, UIActivityItemSource {
     }
 }
 
-// Filter chip for the search UI
-struct FilterChip: View {
-    let text: String
-    let isSelected: Bool
-    let color: Color
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            Text(text)
-                .font(.footnote)
-                .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundColor(isSelected ? .white : .primary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(
-                    Capsule()
-                        .fill(isSelected ? color : Color(.systemGray5))
-                )
-        }
-    }
-}
 

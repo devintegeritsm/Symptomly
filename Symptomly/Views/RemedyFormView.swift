@@ -553,6 +553,7 @@ struct RemedyFormView: View {
         
         // Notify that remedy was updated
         NotificationCenter.default.post(name: NSNotification.Name("DidUpdateRemedy"), object: nil)
+        dismiss()
     }
     
     private func deleteRemedy() {

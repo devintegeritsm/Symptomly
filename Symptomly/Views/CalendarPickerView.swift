@@ -130,6 +130,7 @@ struct CalendarPickerView: View {
                     }
                 }
             }
+            .id(UUID())
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 4)
@@ -268,6 +269,7 @@ struct MonthPickerView: View {
                 }
             }
             .padding()
+            .id(UUID())
         }
     }
     

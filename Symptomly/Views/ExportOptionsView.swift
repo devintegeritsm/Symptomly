@@ -1,8 +1,20 @@
+//
+//  ExportOptionsView.swift
+//  Symptomly
+//
+//  Created by Bastien Villefort on 5/18/25.
+//
+
+import SwiftUICore
+import Foundation
+import SwiftUI
+
+
 struct ExportOptionsView: View {
     @Binding var startDate: Date
     @Binding var endDate: Date
     @Environment(\.dismiss) private var dismiss
-    let onExport: (Date, Date, ExportAction) -> Void
+    let onExport: (Date, Date) -> Void
     
     var body: some View {
         NavigationView {
@@ -35,7 +47,7 @@ struct ExportOptionsView: View {
                     .padding(.horizontal)
                 
                 Button(action: {
-                    onExport(startDate, endDate, .share)
+                    onExport(startDate, endDate)
                 }) {
                     HStack {
                         Image(systemName: "square.and.arrow.up")

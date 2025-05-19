@@ -1,3 +1,14 @@
+//
+//  FilterChip.swift
+//  Symptomly
+//
+//  Created by Bastien Villefort on 5/18/25.
+//
+
+import SwiftUICore
+import SwiftUI
+
+
 // Filter chip for the search UI
 struct FilterChip: View {
     let text: String
