@@ -51,7 +51,7 @@ struct DateRangePickerView: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 15) {
+            VStack(spacing: 7) {
                 Text(onExport != nil ? "Export Timeline" : "Select Date Range")
                     .font(.title3)
                     .fontWeight(.bold)  

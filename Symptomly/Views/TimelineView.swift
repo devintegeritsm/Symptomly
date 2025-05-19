@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
+import Combine
 
 struct TimelineView: View {
     @Environment(\.modelContext) private var modelContext
@@ -23,12 +24,18 @@ struct TimelineView: View {
     @State private var exportEndDate = Date()
     @State private var exportedFileURL: URL?
     @State private var showingShareSheet = false
-        
-    @Query private var symptoms: [Symptom]
-    @Query private var remedies: [Remedy]
     
+    // Pagination state
+    @State private var pageSize = 50
+    @State private var currentPage = 0
+    @State private var hasMoreItems = true
+    @State private var isLoading = false
     @State private var timelineItems: [TimelineItem] = []
-
+    @State private var totalItemCount = 0
+    
+    // Cancellables for async operations
+    private var cancellables = Set<AnyCancellable>()
+    
     // Search filter enum
     enum SearchFilter: String, CaseIterable {
         case all = "All"
@@ -41,103 +48,6 @@ struct TimelineView: View {
         case resolved = "Resolved"
     }
     
-    init() {
-        self._symptoms = Query(sort: \Symptom.timestamp, order: .reverse)
-        self._remedies = Query(sort: \Remedy.takenTimestamp, order: .reverse)
-    }
-    
-    private func reloadTimelineItems() {
-        var items: [TimelineItem] = []
-        
-        // Add symptoms to timeline
-        for symptom in symptoms {
-            items.append(TimelineItem(
-                timestamp: symptom.timestamp,
-                type: .symptom,
-                name: symptom.name,
-                details: (symptom.isResolved
-                          ? "Resolved"
-                          : "Severity: \(symptom.severityEnum.displayName)")
-                    + (symptom.notes != nil ? " - \(symptom.notes!)" : ""),
-                color: symptom.severityEnum.color
-            ))
-        }
-        
-        // Add remedies to timeline
-        for remedy in remedies {
-            items.append(TimelineItem(
-                timestamp: remedy.takenTimestamp,
-                type: .remedy,
-                name: remedy.name,
-                details: "Potency: \(remedy.displayPotency)" + (remedy.notes != nil ? " - \(remedy.notes!)" : ""),
-                color: .blue
-            ))
-        }
-        
-        self.timelineItems.removeAll()
-        self.timelineItems.append(contentsOf: items.sorted { $0.timestamp > $1.timestamp })
-    }
-        
-    var filteredItems: [TimelineItem] {
-        // First, filter by date range if active
-        var items = timelineItems
-        
-        if isDateRangeActive {
-            items = items.filter { item in
-                let calendar = Calendar.current
-                let itemDate = calendar.startOfDay(for: item.timestamp)
-                let startOfStartDate = calendar.startOfDay(for: startDate)
-                let endOfEndDate = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: endDate)!
-                
-                return itemDate >= startOfStartDate && itemDate <= endOfEndDate
-            }
-        }
-        
-        // Then apply search and category filters
-        if searchText.isEmpty && searchFilter == .all {
-            return items
-        }
-        
-        return items.filter { item in
-            var matchesFilter = true
-            
-            // Apply category filter
-            switch searchFilter {
-            case .symptoms:
-                matchesFilter = item.type == .symptom
-            case .remedies:
-                matchesFilter = item.type == .remedy
-            case .mild, .moderate, .severe, .extreme, .resolved:
-                // Only apply to symptoms
-                if item.type == .symptom {
-                    let severityString = searchFilter.rawValue
-                    matchesFilter = item.details.contains("Severity: \(severityString)") || 
-                                   (searchFilter == .resolved && item.details.contains("Resolved"))
-                } else {
-                    matchesFilter = false
-                }
-            case .all:
-                matchesFilter = true
-            }
-            
-            // If no search text, just return the filter result
-            if searchText.isEmpty {
-                return matchesFilter
-            }
-            
-            // Apply text search if we have search text
-            let searchLowercased = searchText.lowercased()
-            
-            // Search in name
-            let nameMatch = item.name.lowercased().contains(searchLowercased)
-            
-            // Search in details (notes and potency)
-            let detailsMatch = item.details.lowercased().contains(searchLowercased)
-            
-            return matchesFilter && (nameMatch || detailsMatch)
-        }
-    }
-        
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -152,6 +62,11 @@ struct TimelineView: View {
                     HStack(spacing: 16) {
                         Button(action: {
                             isSearching.toggle()
+                            if !isSearching {
+                                searchText = ""
+                                searchFilter = .all
+                                resetAndReloadData()
+                            }
                         }) {
                             Image(systemName: isSearching ? "xmark" : "magnifyingglass")
                                 .font(.system(size: 18))
@@ -186,9 +101,10 @@ struct TimelineView: View {
                                 isActive: $isDateRangeActive,
                                 onDateRangeSelected: {
                                     showingCalendarPicker = false
+                                    resetAndReloadData()
                                 }
                             )
-                            .frame(width: 340, height: 700)
+                            .frame(width: 320, height: 700)
                             .padding()
                             .presentationDetents([.height(720)])
                             .presentationDragIndicator(.visible)
@@ -211,6 +127,7 @@ struct TimelineView: View {
                         
                         Button(action: {
                             isDateRangeActive = false
+                            resetAndReloadData()
                         }) {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundColor(.gray)
@@ -232,10 +149,14 @@ struct TimelineView: View {
                             TextField("Search symptoms, remedies...", text: $searchText)
                                 .disableAutocorrection(true)
                                 .autocapitalization(.none)
+                                .onSubmit {
+                                    resetAndReloadData()
+                                }
                             
                             if !searchText.isEmpty {
                                 Button(action: {
                                     searchText = ""
+                                    resetAndReloadData()
                                 }) {
                                     Image(systemName: "xmark.circle.fill")
                                         .foregroundColor(.gray)
@@ -257,6 +178,7 @@ struct TimelineView: View {
                                         color: filterColor(for: filter)
                                     ) {
                                         searchFilter = filter
+                                        resetAndReloadData()
                                     }
                                 }
                             }
@@ -270,7 +192,7 @@ struct TimelineView: View {
                 }
                 
                 // Timeline content
-                if filteredItems.isEmpty {
+                if timelineItems.isEmpty && !isLoading {
                     VStack(spacing: 20) {
                         Image(systemName: "calendar.badge.clock")
                             .font(.system(size: 60))
@@ -306,22 +228,50 @@ struct TimelineView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color(.systemGroupedBackground))
                 } else {
-                    ScrollView {
-                        LazyVStack {
-                            ForEach(filteredItems) { item in
-                                TimelineItemRow(item: item)
-                                    .padding(.horizontal)
+                    List {
+                        ForEach(timelineItems) { item in
+                            TimelineItemRow(item: item)
+                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                                .onAppear {
+                                    // Load more when we're near the end
+                                    if item.id == timelineItems.last?.id && hasMoreItems && !isLoading {
+                                        loadNextPage()
+                                    }
+                                }
+                        }
+                        
+                        if hasMoreItems && !timelineItems.isEmpty {
+                            HStack {
+                                Spacer()
+                                ProgressView()
+                                    .padding()
+                                Spacer()
+                            }
+                            .onAppear {
+                                loadNextPage()
                             }
                         }
-                        .padding(.vertical)
                     }
+                    .listStyle(.plain)
                     .background(Color(.systemGroupedBackground))
+                    .overlay(
+                        Group {
+                            if isLoading && timelineItems.isEmpty {
+                                ProgressView("Loading timeline...")
+                                    .progressViewStyle(CircularProgressViewStyle())
+                                    .background(Color(.systemBackground).opacity(0.8))
+                                    .cornerRadius(10)
+                                    .padding()
+                            }
+                        }
+                    )
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .dateSelected)) { notification in
                 if let selectedDate = notification.userInfo?["selectedDate"] as? Date {
                     self.selectedDate = selectedDate
                     updateDateRange(from: selectedDate)
+                    resetAndReloadData()
                 }
             }
             .sheet(isPresented: $showingExportOptions) {
@@ -352,12 +302,246 @@ struct TimelineView: View {
                     ShareSheet(items: [url])
                 }
             }
-            .onAppear() {
-                reloadTimelineItems()
+            .task {
+                await countTotalItems()
+                resetAndReloadData()
             }
         }
     }
-
+    
+    // MARK: - Data Loading Methods
+    
+    private func resetAndReloadData() {
+        timelineItems = []
+        currentPage = 0
+        hasMoreItems = true
+        loadNextPage()
+    }
+    
+    private func loadNextPage() {
+        guard hasMoreItems && !isLoading else { return }
+        
+        isLoading = true
+        
+        // Perform the data loading on a background thread
+        Task {
+            // Fetch symptoms with predicates
+            let symptomPredicate = buildSymptomPredicate()
+            let symptomDescriptor = buildSymptomFetchDescriptor(predicate: symptomPredicate)
+            
+            // Fetch remedies with predicates
+            let remedyPredicate = buildRemedyPredicate()
+            let remedyDescriptor = buildRemedyFetchDescriptor(predicate: remedyPredicate)
+            
+            // Perform both fetches
+            let symptoms = (try? modelContext.fetch(symptomDescriptor)) ?? []
+            let remedies = (try? modelContext.fetch(remedyDescriptor)) ?? []
+            
+            // Process the fetched data into timeline items
+            var newItems: [TimelineItem] = []
+            
+            // Create timeline items
+            for symptom in symptoms {
+                newItems.append(TimelineItem(
+                    timestamp: symptom.timestamp,
+                    type: .symptom,
+                    name: symptom.name,
+                    details: (symptom.isResolved
+                              ? "Resolved"
+                              : "Severity: \(symptom.severityEnum.displayName)")
+                        + (symptom.notes != nil ? " - \(symptom.notes!)" : ""),
+                    color: symptom.severityEnum.color
+                ))
+            }
+            
+            for remedy in remedies {
+                newItems.append(TimelineItem(
+                    timestamp: remedy.takenTimestamp,
+                    type: .remedy,
+                    name: remedy.name,
+                    details: "Potency: \(remedy.displayPotency)" + (remedy.notes != nil ? " - \(remedy.notes!)" : ""),
+                    color: .blue
+                ))
+            }
+            
+            // Sort combined items by timestamp (descending)
+            newItems.sort { $0.timestamp > $1.timestamp }
+            
+            // Update UI on main thread
+            await MainActor.run {
+                if !newItems.isEmpty {
+                    timelineItems.append(contentsOf: newItems)
+                    currentPage += 1
+                }
+                
+                // Check if we've reached the end
+                hasMoreItems = newItems.count >= pageSize
+                isLoading = false
+            }
+        }
+    }
+    
+    private func countTotalItems() async {
+        let symptomPredicate = buildSymptomPredicate()
+        let remedyPredicate = buildRemedyPredicate()
+        
+        // Use count descriptors
+        var symptomDescriptor = FetchDescriptor<Symptom>(predicate: symptomPredicate)
+        var remedyDescriptor = FetchDescriptor<Remedy>(predicate: remedyPredicate)
+        
+        // For counting only
+        symptomDescriptor.fetchLimit = 0
+        remedyDescriptor.fetchLimit = 0
+        
+        let symptomCount = (try? modelContext.fetchCount(symptomDescriptor)) ?? 0
+        let remedyCount = (try? modelContext.fetchCount(remedyDescriptor)) ?? 0
+        
+        await MainActor.run {
+            self.totalItemCount = symptomCount + remedyCount
+            
+            // Adjust page size based on total count
+            if totalItemCount > 1000 {
+                self.pageSize = 30
+            } else if totalItemCount > 500 {
+                self.pageSize = 40
+            } else {
+                self.pageSize = 50
+            }
+        }
+    }
+    
+    // MARK: - Predicate Builders
+    
+    private func buildSymptomPredicate() -> Predicate<Symptom> {
+        var predicates: [Predicate<Symptom>] = []
+        
+        // Date range filter
+        if isDateRangeActive {
+            let dateRangePredicate = #Predicate<Symptom> {
+                $0.timestamp >= startDate && $0.timestamp <= endDate
+            }
+            predicates.append(dateRangePredicate)
+        }
+        
+        // Search text filter
+        if !searchText.isEmpty {
+            let searchTextLowercased = searchText.lowercased()
+            let textPredicate = #Predicate<Symptom> {
+                $0.name.localizedStandardContains(searchTextLowercased) ||
+                ($0.notes != nil && $0.notes!.localizedStandardContains(searchTextLowercased))
+            }
+            predicates.append(textPredicate)
+        }
+        
+        // Search filter category
+        switch searchFilter {
+        case .symptoms:
+            // Already getting symptoms, no additional predicate needed
+            break
+        case .remedies:
+            // Exclude all symptoms by using an always-false predicate
+            return #Predicate<Symptom> { _ in false }
+        case .mild:
+            predicates.append(#Predicate<Symptom> { $0.severity == 1 })
+        case .moderate:
+            predicates.append(#Predicate<Symptom> { $0.severity == 2 })
+        case .severe:
+            predicates.append(#Predicate<Symptom> { $0.severity == 3 })
+        case .extreme:
+            predicates.append(#Predicate<Symptom> { $0.severity == 4 })
+        case .resolved:
+            predicates.append(#Predicate<Symptom> { $0.severity == 0 })
+        case .all:
+            break
+        }
+        
+        // Combine all predicates with AND
+        if predicates.isEmpty {
+            return #Predicate<Symptom> { _ in true }
+        } else if predicates.count == 1 {
+            return predicates[0]
+        } else {
+            // Combine predicates properly
+            var finalPredicate = predicates[0]
+            for i in 1..<predicates.count {
+                finalPredicate = #Predicate<Symptom> {
+                    predicates[0].evaluate($0) && predicates[i].evaluate($0)
+                }
+            }
+            return finalPredicate
+        }
+    }
+    
+    private func buildRemedyPredicate() -> Predicate<Remedy> {
+        var predicates: [Predicate<Remedy>] = []
+        
+        // Date range filter
+        if isDateRangeActive {
+            let dateRangePredicate = #Predicate<Remedy> {
+                $0.takenTimestamp >= startDate && $0.takenTimestamp <= endDate
+            }
+            predicates.append(dateRangePredicate)
+        }
+        
+        // Search text filter
+        if !searchText.isEmpty {
+            let searchTextLowercased = searchText.lowercased()
+            let textPredicate = #Predicate<Remedy> {
+                $0.name.localizedStandardContains(searchTextLowercased) ||
+                ($0.notes != nil && $0.notes!.localizedStandardContains(searchTextLowercased)) ||
+                $0.potency.localizedStandardContains(searchTextLowercased) ||
+                ($0.customPotency != nil && $0.customPotency!.localizedStandardContains(searchTextLowercased))
+            }
+            predicates.append(textPredicate)
+        }
+        
+        // Search filter category
+        switch searchFilter {
+        case .remedies:
+            // Already getting remedies, no additional predicate needed
+            break
+        case .symptoms, .mild, .moderate, .severe, .extreme, .resolved:
+            // Exclude all remedies
+            return #Predicate<Remedy> { _ in false }
+        case .all:
+            break
+        }
+        
+        // Combine all predicates with AND
+        if predicates.isEmpty {
+            return #Predicate<Remedy> { _ in true }
+        } else if predicates.count == 1 {
+            return predicates[0]
+        } else {
+            // Combine predicates properly
+            var finalPredicate = predicates[0]
+            for i in 1..<predicates.count {
+                finalPredicate = #Predicate<Remedy> {
+                    predicates[0].evaluate($0) && predicates[i].evaluate($0)
+                }
+            }
+            return finalPredicate
+        }
+    }
+    
+    private func buildSymptomFetchDescriptor(predicate: Predicate<Symptom>) -> FetchDescriptor<Symptom> {
+        var descriptor = FetchDescriptor<Symptom>(predicate: predicate)
+        descriptor.sortBy = [SortDescriptor(\.timestamp, order: .reverse)]
+        descriptor.fetchOffset = currentPage * pageSize
+        descriptor.fetchLimit = pageSize
+        return descriptor
+    }
+    
+    private func buildRemedyFetchDescriptor(predicate: Predicate<Remedy>) -> FetchDescriptor<Remedy> {
+        var descriptor = FetchDescriptor<Remedy>(predicate: predicate)
+        descriptor.sortBy = [SortDescriptor(\.takenTimestamp, order: .reverse)]
+        descriptor.fetchOffset = currentPage * pageSize
+        descriptor.fetchLimit = pageSize
+        return descriptor
+    }
+    
+    // MARK: - Helper Methods
+    
     private func updateDateRange(from date: Date) {
         // Set date range to a single day
         startDate = Calendar.current.startOfDay(for: date)
@@ -382,41 +566,91 @@ struct TimelineView: View {
         }
     }
     
-    // Export Timeline Functions
+    // MARK: - Export Timeline Functions
+    
     private func exportTimeline(from startDate: Date, to endDate: Date) {
         self.exportStartDate = startDate
         self.exportEndDate = endDate
         
-        // Generate markdown content
-        let markdown = generateMarkdown(from: startDate, to: endDate)
-        print("Generated markdown content with \(markdown.count) characters")
-        
-        // Create file for sharing
-        guard let url = createTemporaryFile(content: markdown) else {
-            print("Failed to create temporary file")
-            return
-        }
+        // Use a background task for export
+        Task {
+            // Generate markdown in the background
+            let markdown = await generateMarkdown(from: startDate, to: endDate)
+            print("Generated markdown content with \(markdown.count) characters")
             
-        print("Successfully created file at: \(url.path)")
-        
-        // Set file attributes to make sure it's accessible
-        do {
-            try (url as NSURL).setResourceValue(true, forKey: .isReadableKey)
+            // Create file for sharing
+            guard let url = createTemporaryFile(content: markdown) else {
+                print("Failed to create temporary file")
+                return
+            }
+                
+            print("Successfully created file at: \(url.path)")
             
-            // Set URL which will trigger the sheet presentation via onChange
-            self.exportedFileURL = url
-            
-        } catch {
-            print("Error setting resource value: \(error)")
+            // Set file attributes to make sure it's accessible
+            do {
+                try (url as NSURL).setResourceValue(true, forKey: .isReadableKey)
+                
+                // Update UI on main thread
+                await MainActor.run {
+                    // Set URL which will trigger the sheet presentation via onChange
+                    self.exportedFileURL = url
+                }
+                
+            } catch {
+                print("Error setting resource value: \(error)")
+            }
         }
     }
     
-    private func generateMarkdown(from startDate: Date, to endDate: Date) -> String {
-        // Find all items in the date range
-        let calendar = Calendar.current
-        let allItems = fetchTimelineItems(from: startDate, to: endDate)
-            .sorted { $0.timestamp > $1.timestamp }
+    private func generateMarkdown(from startDate: Date, to endDate: Date) async -> String {
+        // Find all items in the date range using optimized queries
+        let symptomPredicate = #Predicate<Symptom> { 
+            $0.timestamp >= startDate && $0.timestamp <= endDate
+        }
+        let remedyPredicate = #Predicate<Remedy> {
+            $0.takenTimestamp >= startDate && $0.takenTimestamp <= endDate
+        }
         
+        var symptomDescriptor = FetchDescriptor<Symptom>(predicate: symptomPredicate)
+        var remedyDescriptor = FetchDescriptor<Remedy>(predicate: remedyPredicate)
+        
+        symptomDescriptor.sortBy = [SortDescriptor(\.timestamp, order: .reverse)]
+        remedyDescriptor.sortBy = [SortDescriptor(\.takenTimestamp, order: .reverse)]
+        
+        // Fetch the data
+        let exportSymptoms = (try? modelContext.fetch(symptomDescriptor)) ?? []
+        let exportRemedies = (try? modelContext.fetch(remedyDescriptor)) ?? []
+        
+        // Process into timeline items
+        var allItems: [TimelineItem] = []
+        
+        // Process symptoms
+        for symptom in exportSymptoms {
+            allItems.append(TimelineItem(
+                timestamp: symptom.timestamp,
+                type: .symptom,
+                name: symptom.name,
+                details: (symptom.isResolved ? "Resolved" : "Severity: \(symptom.severityEnum.displayName)") + (symptom.notes != nil ? " - \(symptom.notes!)" : ""),
+                color: symptom.severityEnum.color
+            ))
+        }
+        
+        // Process remedies
+        for remedy in exportRemedies {
+            allItems.append(TimelineItem(
+                timestamp: remedy.takenTimestamp,
+                type: .remedy,
+                name: remedy.name,
+                details: "Potency: \(remedy.displayPotency)" + (remedy.notes != nil ? " - \(remedy.notes!)" : ""),
+                color: .blue
+            ))
+        }
+        
+        // Sort by timestamp
+        allItems.sort { $0.timestamp > $1.timestamp }
+        
+        // Generate markdown content
+        let calendar = Calendar.current
         var markdown = "# Symptomly Timeline Export\n\n"
         markdown += "**Export Date:** \(formatDate(Date()))\n"
         markdown += "**Period:** \(formatDate(startDate)) to \(formatDate(endDate))\n\n"
@@ -443,49 +677,6 @@ struct TimelineView: View {
         }
         
         return markdown
-    }
-    
-    private func fetchTimelineItems(from startDate: Date, to endDate: Date) -> [TimelineItem] {
-        var items: [TimelineItem] = []
-        
-        // We need to fetch data for the specified date range, not the currently displayed range
-        let symptomPredicate = #Predicate<Symptom> { 
-            $0.timestamp >= startDate && $0.timestamp <= endDate
-        }
-        let remedyPredicate = #Predicate<Remedy> {
-            $0.takenTimestamp >= startDate && $0.takenTimestamp <= endDate
-        }
-        
-        let exportSymptoms = try? modelContext.fetch(FetchDescriptor<Symptom>(predicate: symptomPredicate, sortBy: [SortDescriptor(\.timestamp, order: .reverse)]))
-        let exportRemedies = try? modelContext.fetch(FetchDescriptor<Remedy>(predicate: remedyPredicate, sortBy: [SortDescriptor(\.takenTimestamp, order: .reverse)]))
-        
-        // Process symptoms
-        if let exportSymptoms {
-            for symptom in exportSymptoms {
-                items.append(TimelineItem(
-                    timestamp: symptom.timestamp,
-                    type: .symptom,
-                    name: symptom.name,
-                    details: (symptom.isResolved ? "Resolved" : "Severity: \(symptom.severityEnum.displayName)") + (symptom.notes != nil ? " - \(symptom.notes!)" : ""),
-                    color: symptom.severityEnum.color
-                ))
-            }
-        }
-        
-        // Process remedies
-        if let exportRemedies {
-            for remedy in exportRemedies {
-                items.append(TimelineItem(
-                    timestamp: remedy.takenTimestamp,
-                    type: .remedy,
-                    name: remedy.name,
-                    details: "Potency: \(remedy.displayPotency)" + (remedy.notes != nil ? " - \(remedy.notes!)" : ""),
-                    color: .blue
-                ))
-            }
-        }
-        
-        return items
     }
     
     private func createTemporaryFile(content: String) -> URL? {
@@ -555,7 +746,6 @@ struct TimelineView: View {
         return formatter.string(from: date)
     }
 }
-
 
 // Extension to safely access array elements
 extension Array {
