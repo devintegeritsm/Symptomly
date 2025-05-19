@@ -74,7 +74,8 @@ struct CalendarPickerView: View {
             
             // Calendar grid
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: daysInWeek), spacing: 6) {
-                ForEach(daysInMonth(), id: \.self) { date in
+//                ForEach(daysInMonth(), id: \.self) { date in
+                ForEach(Array(daysInMonth().enumerated()), id: \.offset) { idx, date in
                     if let date = date {
                         let hasSymptom = hasSymptomOnDate(date)
                         let hasRemedy = hasRemedyOnDate(date)
@@ -124,6 +125,7 @@ struct CalendarPickerView: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+
                     } else {
                         Text("")
                             .frame(maxWidth: .infinity, minHeight: 35)
@@ -265,7 +267,10 @@ struct MonthPickerView: View {
                                     .opacity(isSelectedMonth(month) ? 0.3 : 0)
                             )
                             .foregroundStyle(isSelectedMonth(month) ? .primary : .secondary)
+                            
+
                     }
+                    .id(UUID())
                 }
             }
             .padding()

@@ -13,3 +13,4 @@ alwaysApply: true
 - Architecture:  MVVM (Model-View-ViewModel)
 - Minimum iOS Version: 17+
 - Privacy: All data will be stored locally on the user's device. No cloud sync or external data transmission. A clear privacy statement should be available.
+- to build and check for errors use platform: iOS Simulator, arch:arm64, name:iPhone 16 Plus

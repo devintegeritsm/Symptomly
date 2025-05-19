@@ -25,7 +25,6 @@ struct CustomDatePicker: View {
             
             Spacer()
             
-//            VStack(alignment: .trailing, spacing: 4) {
             HStack(spacing: 4) {
                 // Date button
                 Button(action: {

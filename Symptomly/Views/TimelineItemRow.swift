@@ -5,7 +5,7 @@
 //  Created by Bastien Villefort on 5/18/25.
 //
 
-import SwiftUICore
+import SwiftUI
 
 
 struct TimelineItemRow: View {

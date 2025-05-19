@@ -7,6 +7,11 @@ struct TimelineView: View {
     @State private var selectedDate = Date()
     @State private var showingCalendarPicker = false
     
+    // Date range filter
+    @State private var startDate = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
+    @State private var endDate = Date()
+    @State private var isDateRangeActive = false
+    
     // Search state
     @State private var searchText = ""
     @State private var isSearching = false
@@ -74,11 +79,26 @@ struct TimelineView: View {
     }
         
     var filteredItems: [TimelineItem] {
-        if searchText.isEmpty && searchFilter == .all {
-            return timelineItems
+        // First, filter by date range if active
+        var items = timelineItems
+        
+        if isDateRangeActive {
+            items = items.filter { item in
+                let calendar = Calendar.current
+                let itemDate = calendar.startOfDay(for: item.timestamp)
+                let startOfStartDate = calendar.startOfDay(for: startDate)
+                let endOfEndDate = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: endDate)!
+                
+                return itemDate >= startOfStartDate && itemDate <= endOfEndDate
+            }
         }
         
-        return timelineItems.filter { item in
+        // Then apply search and category filters
+        if searchText.isEmpty && searchFilter == .all {
+            return items
+        }
+        
+        return items.filter { item in
             var matchesFilter = true
             
             // Apply category filter
@@ -151,15 +171,26 @@ struct TimelineView: View {
                         }) {
                             Image(systemName: "calendar")
                                 .font(.system(size: 18))
+                                .overlay(
+                                    isDateRangeActive ? 
+                                    Circle()
+                                        .fill(Color.blue)
+                                        .frame(width: 8, height: 8)
+                                        .offset(x: 7, y: 7) : nil
+                                )
                         }
                         .sheet(isPresented: $showingCalendarPicker) {
-                            CalendarPickerView(selectedDate: $selectedDate, onDateSelected: {
-                                updateDateRange(from: selectedDate)
-                                showingCalendarPicker = false
-                            })
-                            .frame(width: 340, height: 400)
+                            DateRangePickerView(
+                                startDate: $startDate,
+                                endDate: $endDate,
+                                isActive: $isDateRangeActive,
+                                onDateRangeSelected: {
+                                    showingCalendarPicker = false
+                                }
+                            )
+                            .frame(width: 340, height: 700)
                             .padding()
-                            .presentationDetents([.height(450)])
+                            .presentationDetents([.height(720)])
                             .presentationDragIndicator(.visible)
                         }
                     }
@@ -168,6 +199,27 @@ struct TimelineView: View {
                 .padding(.top)
                 .padding(.bottom, 8)
                 .background(Color(.systemBackground))
+                
+                // Date range indicator
+                if isDateRangeActive {
+                    HStack {
+                        Text("\(formatDate(startDate)) - \(formatDate(endDate))")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            isDateRangeActive = false
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(Color(.systemBackground))
+                }
                 
                 // Search bar
                 if isSearching {
@@ -233,12 +285,20 @@ struct TimelineView: View {
                             Text("Try changing your search or filters")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary.opacity(0.8))
-                        } else {
+                        } else if isDateRangeActive {
                             Text("No events in this period")
                                 .font(.headline)
                                 .foregroundColor(.secondary)
                             
                             Text("Try selecting a different date range")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary.opacity(0.8))
+                        } else {
+                            Text("No events to display")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                            
+                            Text("Add symptoms or remedies to see them here")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary.opacity(0.8))
                         }
@@ -254,7 +314,6 @@ struct TimelineView: View {
                             }
                         }
                         .padding(.vertical)
-                        .id(UUID())
                     }
                     .background(Color(.systemGroupedBackground))
                 }
@@ -298,15 +357,10 @@ struct TimelineView: View {
     }
 
     private func updateDateRange(from date: Date) {
-//        let calendar = Calendar.current
-//        
-//        // Set up a weekly range (centered on selected date)
-//        let startOfWeek = calendar.date(byAdding: .day, value: -3, to: date)!
-//        let endOfWeek = calendar.date(byAdding: .day, value: 3, to: date)!
-//        
-//        startDate = startOfWeek
-//        endDate = endOfWeek
-        
+        // Set date range to a single day
+        startDate = Calendar.current.startOfDay(for: date)
+        endDate = Calendar.current.date(bySettingHour: 23, minute: 59, second: 59, of: date)!
+        isDateRangeActive = true
     }
     
     private func filterColor(for filter: SearchFilter) -> Color {
