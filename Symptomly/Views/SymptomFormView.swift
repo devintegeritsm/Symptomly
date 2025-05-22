@@ -109,14 +109,16 @@ struct SymptomFormView: View {
                         .autocorrectionDisabled(true)
                     
                     if showSuggestions {
-                        VStack(alignment: .leading) {
-                            ScrollView {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 20) {
                                 if !filteredSuggestions.isEmpty {
-                                    VStack(alignment: .leading) {
+                                    VStack(alignment: .leading, spacing: 12) {
                                         Text("Previously used symptoms:")
                                             .font(.caption)
                                             .foregroundColor(.secondary)
-                                        FlowLayout(spacing: 8) {
+                                            .padding(.horizontal, 4)
+                                        
+                                        FlowLayout(spacing: 12) {
                                             ForEach(filteredSuggestions, id: \.self) { suggestion in
                                                 Button(action: {
                                                     name = suggestion
@@ -125,13 +127,14 @@ struct SymptomFormView: View {
                                                     hideKeyboard()
                                                 }) {
                                                     Text(suggestion)
-                                                        .padding(.horizontal, 12)
-                                                        .padding(.vertical, 6)
+                                                        .font(.subheadline)
+                                                        .padding(.horizontal, 14)
+                                                        .padding(.vertical, 10)
                                                         .background(Color.accentColor.opacity(0.1))
                                                         .foregroundColor(.accentColor)
-                                                        .cornerRadius(16)
+                                                        .cornerRadius(18)
                                                         .overlay(
-                                                            RoundedRectangle(cornerRadius: 16)
+                                                            RoundedRectangle(cornerRadius: 18)
                                                                 .stroke(Color.accentColor.opacity(0.3), lineWidth: 1)
                                                         )
                                                 }
@@ -142,11 +145,13 @@ struct SymptomFormView: View {
                                 }
                                 
                                 if !dictionaryCompletions.isEmpty {
-                                    VStack(alignment: .leading) {
+                                    VStack(alignment: .leading, spacing: 12) {
                                         Text("Dictionary suggestions:")
                                             .font(.caption)
                                             .foregroundColor(.secondary)
-                                        FlowLayout(spacing: 8) {
+                                            .padding(.horizontal, 4)
+                                        
+                                        FlowLayout(spacing: 12) {
                                             ForEach(dictionaryCompletions, id: \.self) { suggestion in
                                                 Button(action: {
                                                     name = suggestion
@@ -155,6 +160,16 @@ struct SymptomFormView: View {
                                                     hideKeyboard()
                                                 }) {
                                                     Text(suggestion)
+                                                        .font(.subheadline)
+                                                        .padding(.horizontal, 14)
+                                                        .padding(.vertical, 10)
+                                                        .background(Color.secondary.opacity(0.1))
+                                                        .foregroundColor(.primary)
+                                                        .cornerRadius(18)
+                                                        .overlay(
+                                                            RoundedRectangle(cornerRadius: 18)
+                                                                .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                                                        )
                                                 }
                                                 .buttonStyle(PlainButtonStyle())
                                             }
@@ -162,48 +177,19 @@ struct SymptomFormView: View {
                                     }
                                 }
                             }
-                            .frame(maxHeight: 200)
+                            .padding(.vertical, 12)
+                            .padding(.horizontal, 4)
                         }
+                        .frame(maxHeight: 280)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(.systemGray6).opacity(0.3))
+                        )
                         .transition(.opacity.combined(with: .move(edge: .top)))
                         .animation(.easeInOut, value: showSuggestions)
                     }
                 }
-                
-                /*
-                Section {
-                    Toggle("Mark as resolved", isOn: $isResolved)
-                        .onChange(of: isResolved) { oldValue, newValue in
-                            if newValue {
-                                severity = Severity.resolved.rawValue
-                                // Only set resolution date to now if not previously resolved
-                                if !oldValue {
-                                    resolutionDate = Date()
-                                    showResolutionDatePicker = true
-                                }
-                            } else {
-                                severity = Severity.mild.rawValue
-                            }
-                        }
-                    
-                    if isResolved {
-                        Button(action: {
-                            showResolutionDatePicker.toggle()
-                        }) {
-                            HStack {
-                                Text("Resolution Date")
-                                Spacer()
-                                Text(resolutionDate.formatted(.dateTime.month().day().hour().minute()))
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        
-                        if showResolutionDatePicker {
-                            CustomDatePicker(selection: $resolutionDate, includeTime: true)
-                        }
-                    }
-                }
-                 */
-                
+
                 if isResolved {
                     Section() {
                         HStack {
@@ -312,16 +298,21 @@ struct SymptomFormView: View {
     }
     
     private func updateSuggestions(query: String) {
-        let lowercasedQuery = query.lowercased()
-        // Fetch unique names once or efficiently if this list changes frequently
-        let uniqueSymptomNames = Set(existingSymptoms.map { $0.name })
-        // Filter more efficiently
-        // Also, ensure the query itself isn't immediately shown as a suggestion if it's a full match
-        // unless that's desired behavior.
-        filteredSuggestions = Array(uniqueSymptomNames).filter {
-            $0.lowercased().contains(lowercasedQuery) && $0.lowercased() != lowercasedQuery
-        }.sorted()
-        showSuggestions = !filteredSuggestions.isEmpty
+        if query.count >= 3 {
+            let lowercasedQuery = query.lowercased()
+            // Fetch unique names once or efficiently if this list changes frequently
+            let uniqueSymptomNames = Set(existingSymptoms.map { $0.name })
+            // Filter more efficiently
+            // Also, ensure the query itself isn't immediately shown as a suggestion if it's a full match
+            // unless that's desired behavior.
+            filteredSuggestions = Array(uniqueSymptomNames).filter {
+                $0.lowercased().contains(lowercasedQuery) && $0.lowercased() != lowercasedQuery
+            }.sorted()
+            showSuggestions = !filteredSuggestions.isEmpty
+        } else {
+            showSuggestions = false
+        }
+        
         
         // Get completions only for the last word in the query
         if let lastWord = query.components(separatedBy: .whitespacesAndNewlines).last, !lastWord.isEmpty {

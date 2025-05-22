@@ -24,14 +24,16 @@ struct FlowLayout: Layout {
         var rowHeight: CGFloat = 0
         
         for size in sizes {
-            if rowWidth + size.width > maxWidth {
+            let spacingNeeded = rowWidth > 0 ? spacing : 0
+            
+            if rowWidth + spacingNeeded + size.width > maxWidth {
                 // Start a new row
-                height += rowHeight + spacing
+                height += rowHeight + (height > 0 ? spacing : 0)
                 rowWidth = size.width
                 rowHeight = size.height
             } else {
                 // Add to current row
-                rowWidth += size.width + (rowWidth > 0 ? spacing : 0)
+                rowWidth += spacingNeeded + size.width
                 rowHeight = max(rowHeight, size.height)
             }
         }
@@ -51,22 +53,24 @@ struct FlowLayout: Layout {
         
         for (index, subview) in subviews.enumerated() {
             let size = sizes[index]
+            var spacingNeeded = rowWidth > 0 ? spacing : 0
             
-            if rowWidth + size.width > bounds.width {
+            if rowWidth + spacingNeeded + size.width > bounds.width {
                 // Start a new row
                 rowOriginY += rowHeight + spacing
                 rowWidth = 0
                 rowHeight = 0
+                spacingNeeded = 0  // No spacing needed for first item in new row
             }
             
             let point = CGPoint(
-                x: bounds.minX + rowWidth,
+                x: bounds.minX + rowWidth + spacingNeeded,
                 y: rowOriginY
             )
             
             subview.place(at: point, anchor: .topLeading, proposal: .unspecified)
             
-            rowWidth += size.width + spacing
+            rowWidth += spacingNeeded + size.width
             rowHeight = max(rowHeight, size.height)
         }
     }
